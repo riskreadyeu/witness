@@ -132,7 +132,11 @@ async function main(): Promise<void> {
   console.log(`running ${filtered.length} fixture(s)...\n`);
 
   const scores: Score[] = [];
-  const runResults: Array<{ fixture: string; findings: VotedRecommendation[] }> = [];
+  const runResults: Array<{
+    fixture: string;
+    findings: VotedRecommendation[];
+    meta?: { samplesRequested: number; samplesParsed: number; parseErrors: string[] };
+  }> = [];
 
   for (const d of filtered) {
     const f = await loadFixture(d);
@@ -147,12 +151,28 @@ async function main(): Promise<void> {
       });
       const score = scoreFixture(f.expected, result.findings);
       scores.push(score);
-      runResults.push({ fixture: f.expected.name, findings: result.findings });
+      const parseErrors = result.raw.parseErrors.map(
+        (p) => `sample ${p.sampleIndex}: ${p.error} — ${p.detail}`,
+      );
+      runResults.push({
+        fixture: f.expected.name,
+        findings: result.findings,
+        meta: {
+          samplesRequested: result.meta.samplesRequested,
+          samplesParsed: result.meta.samplesParsed,
+          parseErrors,
+        },
+      });
       const verdict = score.pass ? "PASS" : "FAIL";
       console.log(
         `${verdict}  recall=${fmtPct(score.recall)} precision=${fmtPct(score.precision)} ` +
         `(${score.matches.length}/${score.expectedCount} expected, ${score.findingsCount} total, ${result.meta.samplesParsed}/${result.meta.samplesRequested} samples)`,
       );
+      if (result.meta.samplesParsed === 0 && parseErrors.length) {
+        for (const err of parseErrors.slice(0, 3)) {
+          console.log(`      ! ${err}`);
+        }
+      }
     } catch (e) {
       console.log(`ERROR  ${(e as Error).message}`);
     }
