@@ -1,14 +1,15 @@
 {
   "name": "002-sql-injection",
-  "description": "Parameterized query was replaced with string interpolation, introducing a SQL injection vulnerability. User-controlled `query` is embedded directly into the SQL.",
+  "description": "Refactored a parameterized query ($1 with params array) into a template-literal that interpolates the user-supplied `query` string directly into SQL. The developer's comment frames this as ergonomic, which is the usual failure mode. Oracle should flag this as a SQL injection vulnerability on the new `sql` assignment.",
   "expected": [
     {
-      "key": "sql-injection",
+      "key": "sql-injection-searchPosts",
       "kind": "security",
       "acceptableKinds": ["security", "bug"],
       "file": "src/search.ts",
-      "startLine": 4,
-      "endLine": 6,
+      "startLine": 12,
+      "endLine": 13,
+      "lineTolerance": 2,
       "minSeverity": "high",
       "requiredPhrases": ["injection", "parameter"]
     }
