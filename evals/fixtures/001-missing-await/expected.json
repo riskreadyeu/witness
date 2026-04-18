@@ -1,0 +1,17 @@
+{
+  "name": "001-missing-await",
+  "description": "db.users.save() and sendEmailChangedNotification() return Promises that are no longer awaited. Rejections become unhandled, and the function may return before persistence completes. This was a regression from the previous version, where both were awaited.",
+  "expected": [
+    {
+      "key": "missing-await-save",
+      "kind": "bug",
+      "acceptableKinds": ["bug", "security"],
+      "file": "src/user-service.ts",
+      "startLine": 8,
+      "endLine": 9,
+      "minSeverity": "high",
+      "requiredPhrases": ["await", "promise"]
+    }
+  ],
+  "allowExtras": true
+}

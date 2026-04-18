@@ -1,0 +1,35 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build
+dist/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+
+# editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# oracle-specific
+# private fixtures mined from closed-source repos (e.g., RiskReadyEU).
+# NEVER commit these. They contain proprietary code.
+# README.md is committed to document the directory's purpose.
+evals/fixtures-private/*
+!evals/fixtures-private/README.md
+evals/results/
+.oracle/
+
+# dissent log — user-local, contains private code paths
+dissent.jsonl

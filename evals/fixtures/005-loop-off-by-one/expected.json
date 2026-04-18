@@ -1,0 +1,17 @@
+{
+  "name": "005-loop-off-by-one",
+  "description": "The limit comparison changed from `>=` to `>`, so a counter at `limit` is now allowed through — the rate limit effectively becomes `limit + 1`. This is a classic off-by-one that silently loosens the policy.",
+  "expected": [
+    {
+      "key": "off-by-one-limit",
+      "kind": "bug",
+      "acceptableKinds": ["bug", "security"],
+      "file": "src/rate-limit.ts",
+      "startLine": 13,
+      "endLine": 13,
+      "minSeverity": "high",
+      "requiredPhrases": ["off-by-one", "limit"]
+    }
+  ],
+  "allowExtras": true
+}

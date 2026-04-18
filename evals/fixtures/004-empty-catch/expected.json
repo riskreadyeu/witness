@@ -1,0 +1,17 @@
+{
+  "name": "004-empty-catch",
+  "description": "The handler now swallows all errors and returns 200 OK. A failed payment will look successful to the caller, and signature-verification failures that throw (instead of returning false) no longer produce 4xx. Silent failure in a payment webhook is particularly dangerous.",
+  "expected": [
+    {
+      "key": "swallowed-errors-return-200",
+      "kind": "bug",
+      "acceptableKinds": ["bug", "security", "architectural"],
+      "file": "src/payment-webhook.ts",
+      "startLine": 12,
+      "endLine": 14,
+      "minSeverity": "high",
+      "requiredPhrases": ["catch", "error"]
+    }
+  ],
+  "allowExtras": true
+}

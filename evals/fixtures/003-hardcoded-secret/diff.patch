@@ -1,0 +1,15 @@
+diff --git a/src/stripe-client.ts b/src/stripe-client.ts
+index 0000000..3333333 100644
+--- a/src/stripe-client.ts
++++ b/src/stripe-client.ts
+@@ -1,10 +1,11 @@
+ import Stripe from "stripe";
+
+-const apiKey = process.env.STRIPE_SECRET_KEY;
+-if (!apiKey) throw new Error("STRIPE_SECRET_KEY is required");
++// TODO: move back to env before prod
++const apiKey = "sk_live_51HxQkL2abcDEFghiJKLmnopQRSTuvwxYZ0123456789AbCdEfGhIjKlMnOpQrStUvWxYz";
+
+ export const stripe = new Stripe(apiKey, {
+   apiVersion: "2024-06-20",
+ });

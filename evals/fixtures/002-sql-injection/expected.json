@@ -1,0 +1,17 @@
+{
+  "name": "002-sql-injection",
+  "description": "Parameterized query was replaced with string interpolation, introducing a SQL injection vulnerability. User-controlled `query` is embedded directly into the SQL.",
+  "expected": [
+    {
+      "key": "sql-injection",
+      "kind": "security",
+      "acceptableKinds": ["security", "bug"],
+      "file": "src/search.ts",
+      "startLine": 4,
+      "endLine": 6,
+      "minSeverity": "high",
+      "requiredPhrases": ["injection", "parameter"]
+    }
+  ],
+  "allowExtras": true
+}

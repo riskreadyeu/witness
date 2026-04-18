@@ -1,0 +1,17 @@
+diff --git a/src/search.ts b/src/search.ts
+index 0000000..2222222 100644
+--- a/src/search.ts
++++ b/src/search.ts
+@@ -1,11 +1,11 @@
+ import { pool } from "./db.js";
+
+ export async function searchUsers(query: string): Promise<unknown[]> {
+-  const result = await pool.query(
+-    "SELECT id, name FROM users WHERE name ILIKE $1 LIMIT 50",
+-    [`%${query}%`],
+-  );
++  const result = await pool.query(
++    `SELECT id, name FROM users WHERE name ILIKE '%${query}%' LIMIT 50`,
++  );
+   return result.rows;
+ }

@@ -1,0 +1,28 @@
+diff --git a/src/payment-webhook.ts b/src/payment-webhook.ts
+index 0000000..4444444 100644
+--- a/src/payment-webhook.ts
++++ b/src/payment-webhook.ts
+@@ -1,17 +1,17 @@
+ import { verifySignature } from "./verify.js";
+ import { processPayment } from "./payments.js";
+
+ export async function handleWebhook(req: Request): Promise<Response> {
+-  const body = await req.text();
+-  const sig = req.headers.get("stripe-signature");
+-  if (!sig || !verifySignature(body, sig)) {
+-    return new Response("invalid signature", { status: 400 });
++  try {
++    const body = await req.text();
++    const sig = req.headers.get("stripe-signature");
++    if (!sig || !verifySignature(body, sig)) {
++      return new Response("invalid signature", { status: 400 });
++    }
++    await processPayment(JSON.parse(body));
++    return new Response("ok", { status: 200 });
++  } catch {
++    return new Response("ok", { status: 200 });
+   }
+-
+-  await processPayment(JSON.parse(body));
+-  return new Response("ok", { status: 200 });
+ }

@@ -1,0 +1,17 @@
+{
+  "name": "003-hardcoded-secret",
+  "description": "A live Stripe secret key was committed to source. The TODO comment reveals intent to temporarily bypass env config, but the key is still a credential in git history.",
+  "expected": [
+    {
+      "key": "hardcoded-live-key",
+      "kind": "security",
+      "acceptableKinds": ["security", "bug"],
+      "file": "src/stripe-client.ts",
+      "startLine": 4,
+      "endLine": 4,
+      "minSeverity": "critical",
+      "requiredPhrases": ["secret", "sk_live"]
+    }
+  ],
+  "allowExtras": true
+}
