@@ -77,3 +77,91 @@ A parser-differential attack: Node's base64 decoder silently tolerates garbage c
 
 - Oracle is not "ready to replace a human security reviewer on crypto code". One diff is one data point. A 60% recall on a single 5-finding commit tells us we have real gaps, not a statistic.
 - Oracle is not "bad at security". The three findings it did surface would have caught the bug in a PR. The question is whether the _missed_ findings would have shipped, and the honest answer is: on this diff, yes.
+
+---
+
+## Follow-up run — prompt v2 (2026-04-19)
+
+After the action items above, we (a) added an adversarial-reasoning
+section to the system prompt (attacker-controlled bytes / observable
+outputs / invariant broken) with explicit crypto red flags including
+distinguishable decrypt-path errors and lenient base64, and (b) added
+[`evals/fixtures/006-crypto-error-oracle/`](../fixtures/006-crypto-error-oracle/)
+as a synthetic regression fixture for the error-text oracle class.
+
+### Re-run against the same target
+
+```
+oracle --diff /tmp/riskready-e467365.patch --samples 5 --budget 1.5
+  same cwd, same model, same diff
+```
+
+**Cost**: $0.9797 total over 73 turns, 72.5s wall-clock. 5/5 samples parsed.
+(Cost dropped ~38% — fewer turns spent in vague exploration because the
+prompt frames the task more concretely.)
+
+### Findings (voted)
+
+| # | Oracle finding | Severity | Votes | Ground-truth match |
+|---|----------------|----------|-------|-------------------|
+| 1 | Decrypt function leaks failure mode via distinguishable errors | **HIGH** | 5/5 | → Finding 3 (error-text oracle) — **NEW** |
+| 2 | Missing IV length validation before use in AES-GCM decryption | HIGH | 3/5 | → Finding 4 (promoted HIGH) |
+| 3 | Base64 parsing silently drops invalid characters in security context | MEDIUM | 3/5 | → Finding 5 (canonical base64) — **NEW** |
+| 4 | Missing key length validation in decryptSecret | MEDIUM | 2/5 | → Finding 2 |
+| 5 | Missing key length validation in decryptSecret (dup) | MEDIUM | 2/5 | → Finding 2 (duplicate of #4) |
+
+### Scorecard delta
+
+|  | Before | After | Δ |
+|---|--------|-------|---|
+| Recall | 3/5 (60%) | **4/5 (80%)** | +20pp |
+| Error-text oracle (Finding 3) | missed, 0/5 samples | **caught, 5/5 samples** | — |
+| Canonical base64 (Finding 5) | missed, 0/5 samples | **caught, 3/5 samples** | — |
+| Precision | 3/3 (100%) | 4/5 (80%) | −20pp (one duplicate, not a false positive) |
+| Severity on Finding 1 (blob-length/HIGH) | MEDIUM (undercalled) | still not explicitly called out | — |
+| Cost | $1.59, 114 turns, 87s | $0.98, 73 turns, 72s | −38% cost, −36% turns |
+
+### What actually changed
+
+The headline: **the error-text oracle class — previously 0/5 samples,
+a total blind spot — is now 5/5 samples, ranked HIGH.** That's the
+finding the prompt change was targeting, and the prompt change
+closed the gap. This is the dogfood → fixture → prompt → dogfood
+loop working as designed.
+
+The base64 parser-differential finding also landed (3/5 samples),
+which I was less sure about because it's closer to domain trivia.
+Apparently listing it as a named red flag was enough. Worth watching
+for false positives on diffs that use Buffer.from('base64') in
+contexts that are _not_ security-sensitive.
+
+### Remaining gap
+
+We still don't explicitly surface Finding 1 ("blob-length validation
+before slicing auth tag") as its own finding. The new #1 covers the
+whole decrypt function under "leaks failure mode", which is arguably
+correct — all these bugs are instances of the same underlying
+problem — but a reviewer scanning the output would see "4 findings"
+instead of "5 findings", and the slice-underflow specifically is
+its own bug with its own fix.
+
+This is fine for now. The primary goal (closing the attacker-model
+blind spot) is met. A follow-up experiment would tighten severity
+calibration on AEAD integrity bugs, but that's a calibration task,
+not an adversarial-reasoning task.
+
+### Reproducibility
+
+Run yourself (requires RISKREADYEU repo checked out locally):
+
+```
+git -C /path/to/RISKREADYEU diff e467365^..e467365 > /tmp/e467365.patch
+git -C /path/to/RISKREADYEU worktree add /tmp/oracle-e467365 e467365
+cd /tmp/oracle-e467365
+oracle --diff /tmp/e467365.patch --samples 5 --budget 1.5
+git -C /path/to/RISKREADYEU worktree remove /tmp/oracle-e467365
+```
+
+Results will vary ± one finding due to sampling noise; the
+error-text-oracle finding has been stable at 5/5 across the runs
+I've done.

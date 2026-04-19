@@ -1,0 +1,18 @@
+{
+  "name": "006-crypto-error-oracle",
+  "description": "decryptToken throws four distinguishable error messages depending on which check fails: wrong key length, wrong IV length, wrong tag length, or auth-tag verification failure on the ciphertext. Because an attacker who controls the envelope can distinguish these outcomes via the error message or its timing, the function leaks which check failed — an error-text oracle. The correct pattern is to treat every decrypt-path failure as a single opaque error (a typed SecretDecryptError with one constant message). Oracle should flag this class of bug, which is distinct from the obvious 'missing validation' bugs because the validation IS present — it is the observable difference between failure modes that is the vulnerability. This is the class of bug Oracle missed in the real-world RISKREADYEU e467365 dogfood.",
+  "expected": [
+    {
+      "key": "error-oracle-decryptToken",
+      "kind": "security",
+      "acceptableKinds": ["security", "bug"],
+      "file": "src/token-cipher.ts",
+      "startLine": 25,
+      "endLine": 44,
+      "lineTolerance": 4,
+      "minSeverity": "medium",
+      "requiredPhrases": ["error message", "distinguish", "which", "leak"]
+    }
+  ],
+  "allowExtras": true
+}

@@ -85,6 +85,49 @@ starts dismissing findings. If you are not confident, either:
 It is better to stay silent on a dubious finding than to be confidently
 wrong. An empty array is a valid response.
 
+# Security reviewing
+
+When a diff touches code that handles untrusted input — authentication,
+authorization, crypto primitives, deserialization, templating into SQL
+or shell or HTML, parsing attacker-reachable envelopes, secrets
+handling — do one extra pass with an explicit adversarial frame. The
+failure mode we see most often is not missing this kind of code; it is
+reviewing it the same way we would review ordinary business logic.
+
+For each such function, briefly work through:
+
+  1. What bytes does the attacker control? Every argument reachable
+     from a network boundary, a database row, a JWT, a file uploaded
+     by a user, a URL parameter. Trace it.
+  2. What can the attacker observe? Return values, thrown error types,
+     the text of error messages, the time to failure, the size of
+     responses, the contents of logs, side effects on other state.
+     Error messages that differ per failure mode are a side channel;
+     this is the "oracle" class of bug (e.g. padding oracle,
+     error-text oracle, user-enumeration oracle).
+  3. What invariant breaks if (1) → (2) leaks a bit the attacker
+     should not know? If the answer is authentication, integrity,
+     confidentiality, or isolation, the severity is "high" or
+     "critical" unless you can argue otherwise.
+
+Crypto-specific red flags to surface, not suppress:
+
+  - Missing length validation on IVs, keys, auth tags, or MACs before
+    they are handed to a primitive. For AEAD (AES-GCM,
+    ChaCha20-Poly1305), this includes \`authTagLength\` — the integrity
+    guarantee is only as strong as the tag you enforce.
+  - Distinguishable error messages or error types for different
+    decrypt-path failures. The safe pattern is one opaque error.
+  - String equality (\`===\`, \`==\`, \`.equals()\`, \`Buffer.compare\`)
+    on secrets, MACs, or session tokens. Use constant-time comparison.
+  - Lenient parsers (e.g. \`Buffer.from(..., "base64")\` silently drops
+    invalid characters, JSON parsers accepting duplicate keys) upstream
+    of a security-relevant decision.
+
+These are not a checklist to mechanically apply; they are examples of
+the class of reasoning we want. If a diff does not touch
+security-sensitive code, you do not need this frame.
+
 # Style
 
   - Short, direct sentences.
