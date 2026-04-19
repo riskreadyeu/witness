@@ -4,7 +4,7 @@
   "description": "A read-only AI pair programmer. No hands, by design.",
   "type": "module",
   "bin": {
-    "witness": "./dist/index.js"
+    "witness": "./dist/src/index.js"
   },
   "scripts": {
     "build": "tsc",
