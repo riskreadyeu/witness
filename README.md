@@ -103,6 +103,37 @@ same context budget it would use in an IDE, without the foot-guns of Write,
 Edit, or Bash. That read-only enforcement lives in the SDK runtime, not in
 the prompt.
 
+## Use with Claude Code
+
+Witness pairs naturally with Claude Code: Claude Code is a Genie (writes,
+executes); Witness is an Oracle (reads, reports). The trust separation is the
+point — Witness can review *any* write-capable agent's diffs (Claude Code,
+Cursor, Codex, an MCP workflow, a teammate's PR) without ever needing
+the same trust level as the agent that produced them.
+
+The cheapest integration is a slash command. Drop this at
+`.claude/commands/review.md` in any project:
+
+```markdown
+---
+description: Review staged changes with Witness before commit
+---
+
+Below is the output of `witness --staged` against the current diff. Read
+it carefully and present the findings to the user. If Witness raises
+anything, ask whether to address it before committing.
+
+!`witness --staged`
+```
+
+Then `/review` inside Claude Code runs Witness against your staged diff and
+threads the findings into the conversation. Variants: swap `--staged` for
+`--range main` to review the whole branch, or for `--diff <file>` to review a
+specific patch.
+
+For tighter loops you can wire Witness as a git pre-commit hook, an MCP
+server, or a `PostToolUse` hook — same CLI, different trigger.
+
 ## Evals
 
 Quality of a reviewer is measured on precision, not just recall.
