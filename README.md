@@ -82,7 +82,7 @@ Flags:
 | `--min-votes <n>` | 2 | drop findings below this vote count |
 | `--max-turns <n>` | 40 | per-sample tool-use turn cap |
 | `--model <id>` | `claude-sonnet-4-5-20250929` | override model |
-| `--budget <usd>` | 1.0 | hard spend cap per review |
+| `--budget <usd>` | 1.0 | per-sample USD cap (total ≈ `budget × samples`) |
 | `--json` | off | machine output for editor/PR-bot integration |
 | `--quiet`, `-q` | off | suppress progress output on stderr |
 | `--force` | off | skip the large-diff safety rail on unborn-HEAD repos |

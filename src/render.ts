@@ -7,6 +7,7 @@
  */
 
 import type { VotedRecommendation } from "./schema.js";
+import type { ParseError } from "./oracle.js";
 
 const useColor = !process.env.NO_COLOR && process.stdout.isTTY;
 
@@ -72,6 +73,76 @@ function severityBadge(s: VotedRecommendation["severity"]): string {
     case "medium":   return c.yellow("[MEDIUM]  ");
     case "low":      return c.blue("[LOW]     ");
   }
+}
+
+/**
+ * Render the "every sample failed" scenario. This is its own path because
+ * `renderFindings` with zero findings means "Oracle found nothing wrong",
+ * which is actively misleading when the truth is "Oracle couldn't produce
+ * any findings at all". The caller should also exit non-zero.
+ */
+export function renderTotalFailure(input: {
+  samplesRequested: number;
+  totalTurns: number;
+  totalCostUsd: number;
+  elapsedMs: number;
+  parseErrors: ParseError[];
+}): string {
+  const kinds = new Map<FailureKind, number>();
+  for (const e of input.parseErrors) {
+    const kind = classifyError(e.error);
+    kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
+  }
+
+  const lines: string[] = [];
+  lines.push(
+    c.red(c.bold(`oracle: all ${input.samplesRequested} samples failed — no review produced.`)),
+  );
+  lines.push("");
+  lines.push(
+    c.gray(
+      `spent $${input.totalCostUsd.toFixed(4)} over ${input.totalTurns} turns in ${(input.elapsedMs / 1000).toFixed(1)}s.`,
+    ),
+  );
+  lines.push("");
+  lines.push("failure breakdown:");
+  for (const [kind, n] of kinds) {
+    lines.push(`  ${n}× ${kind}`);
+  }
+  lines.push("");
+  lines.push("first errors:");
+  for (const e of input.parseErrors.slice(0, 3)) {
+    lines.push(c.gray(`  sample ${e.sampleIndex}: ${e.error}`));
+  }
+  lines.push("");
+  lines.push("suggestions:");
+  if (kinds.has("budget exhausted")) {
+    lines.push(`  - raise per-sample budget:  ${c.bold("oracle --budget 2.0 …")}`);
+  }
+  if (kinds.has("turns exhausted")) {
+    lines.push(`  - raise turn cap:           ${c.bold("oracle --max-turns 80 …")}`);
+    lines.push(`  - or narrow the diff       (fewer / smaller files review faster)`);
+  }
+  if (kinds.has("json validation failed")) {
+    lines.push(`  - the model produced non-schema output; rerun to retry`);
+  }
+  if (kinds.has("unknown") && kinds.size === 1) {
+    lines.push(`  - inspect raw errors above; rerun with --json for the full record`);
+  }
+  return lines.join("\n");
+}
+
+type FailureKind =
+  | "budget exhausted"
+  | "turns exhausted"
+  | "json validation failed"
+  | "unknown";
+
+export function classifyError(raw: string): FailureKind {
+  if (/error_max_budget_usd/.test(raw)) return "budget exhausted";
+  if (/error_max_turns/.test(raw)) return "turns exhausted";
+  if (/json validation failed/i.test(raw)) return "json validation failed";
+  return "unknown";
 }
 
 function wrapParagraph(text: string, width: number): string[] {

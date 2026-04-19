@@ -10,6 +10,7 @@
  *   oracle --samples 7       override sample count
  *   oracle --min-votes 3     override vote threshold
  *   oracle --max-turns 60    raise per-sample turn cap (default 40)
+ *   oracle --budget 2.0      per-sample USD cap (default 1.0; total ≈ budget × samples)
  *   oracle --force           skip the large-unborn-HEAD safety rail
  *   oracle --json            emit JSON instead of human output
  *
@@ -22,7 +23,7 @@ import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { review } from "./oracle.js";
-import { renderFindings } from "./render.js";
+import { renderFindings, renderTotalFailure } from "./render.js";
 
 interface CliArgs {
   diffFile?: string;
@@ -100,7 +101,7 @@ options:
   --min-votes <n>       minimum votes to surface a finding (default 2)
   --max-turns <n>       max tool-use turns per sample (default 40)
   --model <id>          override the model
-  --budget <usd>        maximum spend in USD (default 1.0)
+  --budget <usd>        per-sample USD cap (default 1.0; total ≈ budget × samples)
   --json                emit JSON instead of human output
   --quiet, -q           suppress progress output on stderr
   --force               skip the safety rails (large-diff warning on unborn HEAD)
@@ -275,8 +276,11 @@ async function main(): Promise<void> {
 
   if (!args.quiet) {
     const samples = args.samples ?? 5;
+    const perSample = args.maxBudgetUsd ?? 1.0;
+    const totalCap = perSample * samples;
     console.error(
-      `oracle: reviewing ${diff.length.toLocaleString()} bytes of diff with ${samples} samples…`,
+      `oracle: reviewing ${diff.length.toLocaleString()} bytes of diff with ${samples} samples ` +
+        `(budget: $${perSample.toFixed(2)}/sample, up to $${totalCap.toFixed(2)} total)…`,
     );
     if (fromEmptyTree) {
       console.error(
@@ -291,13 +295,38 @@ async function main(): Promise<void> {
     ...(args.samples           !== undefined ? { samples: args.samples } : {}),
     ...(args.minVotes          !== undefined ? { minVotes: args.minVotes } : {}),
     ...(args.model             !== undefined ? { model: args.model } : {}),
-    ...(args.maxBudgetUsd      !== undefined ? { maxBudgetUsd: args.maxBudgetUsd } : {}),
+    ...(args.maxBudgetUsd      !== undefined ? { maxBudgetUsdPerSample: args.maxBudgetUsd } : {}),
     ...(args.maxTurns          !== undefined ? { maxTurnsPerSample: args.maxTurns } : {}),
   });
 
   if (args.json) {
     console.log(JSON.stringify(result, null, 2));
+    // In JSON mode, the caller is scripting against us — still surface the
+    // total-failure signal via exit code so `oracle --json | …` pipelines
+    // can distinguish "no findings" from "everything broke".
+    if (result.meta.samplesParsed === 0 && result.meta.samplesRequested > 0) {
+      process.exit(1);
+    }
     return;
+  }
+
+  const totalFailure =
+    result.meta.samplesParsed === 0 && result.meta.samplesRequested > 0;
+
+  if (totalFailure) {
+    // Loud failure path. The previous behavior was to render
+    // "Oracle has no findings." here, which was actively misleading —
+    // we didn't find nothing, we couldn't even produce structured output.
+    console.error(
+      renderTotalFailure({
+        samplesRequested: result.meta.samplesRequested,
+        totalTurns: result.meta.totalTurns,
+        totalCostUsd: result.meta.totalCostUsd,
+        elapsedMs: result.meta.elapsedMs,
+        parseErrors: result.raw.parseErrors,
+      }),
+    );
+    process.exit(1);
   }
 
   console.log(renderFindings(result.findings, result.meta));

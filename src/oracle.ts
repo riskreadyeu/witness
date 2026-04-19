@@ -38,7 +38,12 @@ export interface OracleOptions {
   samples?: number;
   minVotes?: number;
   maxTurnsPerSample?: number;
-  maxBudgetUsd?: number;
+  /**
+   * USD cap applied to EACH sample independently. Total spend for a run
+   * is bounded by `maxBudgetUsdPerSample * samples`. Matches the SDK's
+   * own `maxBudgetUsd` semantics, which is per-query.
+   */
+  maxBudgetUsdPerSample?: number;
 }
 
 export interface OracleResult {
@@ -69,7 +74,14 @@ const DEFAULTS = {
   samples: 5,
   minVotes: 2,
   maxTurnsPerSample: 40,
-  maxBudgetUsd: 1.0,
+  /**
+   * Per-sample cap. Real-world multi-file diffs need room to Read/Grep
+   * before emitting findings — empirically a 13 KB / 5-file refactor
+   * burns ~$0.34/sample. $1.00/sample gives Sonnet the headroom to
+   * actually finish, and the `--budget` flag is honest about what a
+   * full run costs: budget × samples.
+   */
+  maxBudgetUsdPerSample: 1.0,
 };
 
 /**
@@ -94,16 +106,17 @@ export async function review(opts: OracleOptions): Promise<OracleResult> {
   const samples = opts.samples ?? DEFAULTS.samples;
   const minVotes = opts.minVotes ?? DEFAULTS.minVotes;
   const maxTurns = opts.maxTurnsPerSample ?? DEFAULTS.maxTurnsPerSample;
-  const maxBudgetUsd = opts.maxBudgetUsd ?? DEFAULTS.maxBudgetUsd;
+  const maxBudgetUsdPerSample =
+    opts.maxBudgetUsdPerSample ?? DEFAULTS.maxBudgetUsdPerSample;
 
   const context = buildContext({ diff: opts.diff, repoRoot: opts.repoRoot });
   const userMessage = renderUserMessage(context);
 
-  // Budget each sample at 1/samples of the total so a runaway session can't
-  // eat the whole budget and starve the others. (Promise.all means all N
-  // are in flight regardless, but capping per-sample contains damage.)
-  const perSampleBudget = maxBudgetUsd / samples;
-
+  // The SDK's maxBudgetUsd is per-query, and we run one query per sample.
+  // We keep that contract visible to callers instead of hiding a silent
+  // `/samples` division, which footgunned us into starving real-world
+  // refactors on the default budget. Total run cost is bounded by
+  // `maxBudgetUsdPerSample * samples` — report that honestly upstream.
   const queryOptions: Options = {
     model,
     cwd: opts.repoRoot,
@@ -114,7 +127,7 @@ export async function review(opts: OracleOptions): Promise<OracleResult> {
     settingSources: [], // SDK isolation mode: don't load user CLAUDE.md etc.
     persistSession: false, // don't litter ~/.claude/projects with our sessions
     maxTurns,
-    maxBudgetUsd: perSampleBudget,
+    maxBudgetUsd: maxBudgetUsdPerSample,
     outputFormat: {
       type: "json_schema",
       schema: reviewResponseJsonSchema as Record<string, unknown>,
