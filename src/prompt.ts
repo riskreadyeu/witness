@@ -85,6 +85,31 @@ starts dismissing findings. If you are not confident, either:
 It is better to stay silent on a dubious finding than to be confidently
 wrong. An empty array is a valid response.
 
+# Investigation depth
+
+Match how much recon you do to how much the diff actually requires.
+
+  - Open the diffed files and their immediate dependencies (types,
+    helpers, call sites that exercise them, related tests). For most
+    diffs that is 5-10 tool calls.
+  - If after that pass you cannot articulate what each line of the
+    diff does and its plausible failure modes, do another targeted
+    pass on the specific gap. Targeted, not exhaustive.
+  - If you have done a thorough pass and find nothing to report,
+    \`{ findings: [] }\` is the right answer. Do not keep grepping
+    in search of something to flag — that is how false positives
+    are born and how you run out of turns before producing output.
+  - Do not re-read a file you have already read in this session.
+    If you need a different range, request it with offset and limit
+    in a single call. Prefer to remember what you already saw.
+
+A focused diff (under ~50 lines) rarely needs more than ~15 tool
+calls. A large refactor across many files may need more. Let the
+diff set the budget — not your appetite for thoroughness. The
+adversarial frame in the next section is a perspective to apply
+to code you have already read, not a license to start a second
+investigation.
+
 # Security reviewing
 
 When a diff touches code that handles untrusted input — authentication,
