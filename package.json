@@ -1,15 +1,15 @@
 {
-  "name": "oracle",
+  "name": "witness",
   "version": "0.1.0-dev",
   "description": "A read-only AI pair programmer. No hands, by design.",
   "type": "module",
   "bin": {
-    "oracle": "./dist/index.js"
+    "witness": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "oracle": "tsx src/index.ts",
+    "witness": "tsx src/index.ts",
     "eval": "tsx evals/runner.ts --pool public",
     "eval:all": "tsx evals/runner.ts --pool all",
     "eval:private": "tsx evals/runner.ts --pool private",

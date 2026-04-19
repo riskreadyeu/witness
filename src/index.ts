@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * Oracle CLI entrypoint.
+ * Witness CLI entrypoint.
  *
  * Usage:
- *   oracle                   review current diff (HEAD vs working tree)
- *   oracle --staged          review only staged diff
- *   oracle --range HEAD~3    review diff from HEAD~3 to working tree
- *   oracle --diff FILE.patch review a pre-built diff from disk
- *   oracle --samples 7       override sample count
- *   oracle --min-votes 3     override vote threshold
- *   oracle --max-turns 60    raise per-sample turn cap (default 40)
- *   oracle --budget 2.0      per-sample USD cap (default 1.0; total ≈ budget × samples)
- *   oracle --force           skip the large-unborn-HEAD safety rail
- *   oracle --json            emit JSON instead of human output
+ *   witness                   review current diff (HEAD vs working tree)
+ *   witness --staged          review only staged diff
+ *   witness --range HEAD~3    review diff from HEAD~3 to working tree
+ *   witness --diff FILE.patch review a pre-built diff from disk
+ *   witness --samples 7       override sample count
+ *   witness --min-votes 3     override vote threshold
+ *   witness --max-turns 60    raise per-sample turn cap (default 40)
+ *   witness --budget 2.0      per-sample USD cap (default 1.0; total ≈ budget × samples)
+ *   witness --force           skip the large-unborn-HEAD safety rail
+ *   witness --json            emit JSON instead of human output
  *
  * Auth: delegated to the Claude Agent SDK. Either `claude login`
  * (Pro/Max subscription) OR `ANTHROPIC_API_KEY` must be configured.
@@ -22,7 +22,7 @@
 import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { review } from "./oracle.js";
+import { review } from "./witness.js";
 import { renderFindings, renderTotalFailure } from "./render.js";
 
 interface CliArgs {
@@ -89,9 +89,9 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 function printHelp(): void {
-  console.log(`oracle — read-only AI code review
+  console.log(`witness — read-only AI code review
 
-usage: oracle [options]
+usage: witness [options]
 
 options:
   --staged              review staged diff only
@@ -128,7 +128,7 @@ function git(argv: string[], cwd: string): string {
 /**
  * Canonical SHA of the empty tree in every git repo since forever.
  * We use this as the baseline when HEAD doesn't exist yet (fresh repo,
- * before the first commit), so Oracle can still review tracked content.
+ * before the first commit), so Witness can still review tracked content.
  */
 const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
@@ -169,7 +169,7 @@ async function getDiff(args: CliArgs, repoRoot: string): Promise<DiffSource> {
     return { diff: git(["diff", "--staged"], repoRoot), fromEmptyTree: false };
   }
   // Default: working tree vs HEAD. If HEAD doesn't exist yet (repo with no
-  // commits), fall back to the empty tree so Oracle can still review the
+  // commits), fall back to the empty tree so Witness can still review the
   // initial set of tracked files.
   if (!hasHead(repoRoot)) {
     const staged = git(["diff", "--staged", EMPTY_TREE_SHA], repoRoot);
@@ -182,11 +182,11 @@ async function getDiff(args: CliArgs, repoRoot: string): Promise<DiffSource> {
     if (tracked.trim()) return { diff: tracked, fromEmptyTree: true };
     throw new Error(
       "no commits yet and nothing staged.\n" +
-        "This repo has no HEAD, so there's nothing for Oracle to diff against.\n" +
+        "This repo has no HEAD, so there's nothing for Witness to diff against.\n" +
         "Try one of:\n" +
         "  git add -N .         # mark all untracked files as intent-to-add\n" +
-        "  git add . && oracle --staged\n" +
-        "  git commit -m 'init' # then run oracle normally",
+        "  git add . && witness --staged\n" +
+        "  git commit -m 'init' # then run witness normally",
     );
   }
   return { diff: git(["diff", "HEAD"], repoRoot), fromEmptyTree: false };
@@ -211,20 +211,20 @@ function explainError(err: unknown): string {
     const tail = typeof stderr === "string" ? stderr : stderr.toString("utf-8");
     if (/ambiguous argument 'HEAD'|unknown revision/i.test(tail)) {
       return (
-        "oracle: can't diff against HEAD — this repo has no commits yet.\n\n" +
+        "witness: can't diff against HEAD — this repo has no commits yet.\n\n" +
         "Try one of:\n" +
         "  git add -N .          # mark untracked files as intent-to-add, then\n" +
-        "  oracle                # will diff them against the empty tree\n" +
-        "  git add . && oracle --staged\n" +
-        "  git commit -m 'init'  # then just run oracle"
+        "  witness               # will diff them against the empty tree\n" +
+        "  git add . && witness --staged\n" +
+        "  git commit -m 'init'  # then just run witness"
       );
     }
-    return `oracle: ${tail.trim()}`;
+    return `witness: ${tail.trim()}`;
   }
 
   if (/not.*logged in|ANTHROPIC_API_KEY|no.*credentials/i.test(msg)) {
     return (
-      `oracle: no Claude credentials found.\n\n` +
+      `witness: no Claude credentials found.\n\n` +
       `Either run:\n` +
       `  claude login              # uses your Claude Pro/Max subscription\n` +
       `\nor export an API key:\n` +
@@ -234,7 +234,7 @@ function explainError(err: unknown): string {
   }
   if (/ENOENT|claude.*executable|spawn claude/i.test(msg)) {
     return (
-      `oracle: the \`claude\` CLI is required but was not found on PATH.\n\n` +
+      `witness: the \`claude\` CLI is required but was not found on PATH.\n\n` +
       `Install it with:\n` +
       `  npm install -g @anthropic-ai/claude-code\n\n` +
       `Original error: ${msg}`
@@ -260,15 +260,15 @@ async function main(): Promise<void> {
   // workflow the user probably wants.
   if (fromEmptyTree && diff.length > EMPTY_TREE_WARN_BYTES && !args.force) {
     console.error(
-      `oracle: this repo has no HEAD and the synthesized diff is ${diff.length.toLocaleString()} bytes.\n` +
+      `witness: this repo has no HEAD and the synthesized diff is ${diff.length.toLocaleString()} bytes.\n` +
         `That's the whole codebase, and a 5-sample review of it will almost\n` +
         `certainly run out of turns before producing findings (it just did,\n` +
         `if that's why you're here).\n\n` +
         `Try instead:\n` +
         `  git add -A && git commit -m 'init'   # baseline the repo, then\n` +
-        `  oracle                                # reviews real incremental diffs\n\n` +
+        `  witness                               # reviews real incremental diffs\n\n` +
         `Or narrow scope for this run:\n` +
-        `  git add path/to/one/file.ts && oracle --staged\n\n` +
+        `  git add path/to/one/file.ts && witness --staged\n\n` +
         `Override this check with --force if you really mean it.`,
     );
     process.exit(1);
@@ -279,12 +279,12 @@ async function main(): Promise<void> {
     const perSample = args.maxBudgetUsd ?? 1.0;
     const totalCap = perSample * samples;
     console.error(
-      `oracle: reviewing ${diff.length.toLocaleString()} bytes of diff with ${samples} samples ` +
+      `witness: reviewing ${diff.length.toLocaleString()} bytes of diff with ${samples} samples ` +
         `(budget: $${perSample.toFixed(2)}/sample, up to $${totalCap.toFixed(2)} total)…`,
     );
     if (fromEmptyTree) {
       console.error(
-        `oracle: note — no HEAD, diffing against the empty tree (every tracked line is "new")`,
+        `witness: note — no HEAD, diffing against the empty tree (every tracked line is "new")`,
       );
     }
   }
@@ -302,7 +302,7 @@ async function main(): Promise<void> {
   if (args.json) {
     console.log(JSON.stringify(result, null, 2));
     // In JSON mode, the caller is scripting against us — still surface the
-    // total-failure signal via exit code so `oracle --json | …` pipelines
+    // total-failure signal via exit code so `witness --json | …` pipelines
     // can distinguish "no findings" from "everything broke".
     if (result.meta.samplesParsed === 0 && result.meta.samplesRequested > 0) {
       process.exit(1);
@@ -315,7 +315,7 @@ async function main(): Promise<void> {
 
   if (totalFailure) {
     // Loud failure path. The previous behavior was to render
-    // "Oracle has no findings." here, which was actively misleading —
+    // "Witness has no findings." here, which was actively misleading —
     // we didn't find nothing, we couldn't even produce structured output.
     console.error(
       renderTotalFailure({

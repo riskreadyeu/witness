@@ -1,5 +1,5 @@
 /**
- * Terminal rendering for Oracle findings.
+ * Terminal rendering for Witness findings.
  *
  * ANSI-light; we do just enough color to make severity visually legible
  * without dragging in a dependency. `NO_COLOR` disables all escapes per
@@ -7,7 +7,7 @@
  */
 
 import type { VotedRecommendation } from "./schema.js";
-import type { ParseError } from "./oracle.js";
+import type { ParseError } from "./witness.js";
 
 const useColor = !process.env.NO_COLOR && process.stdout.isTTY;
 
@@ -33,7 +33,7 @@ export function renderFindings(findings: VotedRecommendation[], meta: {
   const lines: string[] = [];
 
   if (findings.length === 0) {
-    lines.push(c.dim("Oracle has no findings."));
+    lines.push(c.dim("Witness has no findings."));
     lines.push(
       c.gray(
         `  ${meta.samplesParsed}/${meta.samplesRequested} samples parsed · ${meta.model} · ${Math.round(meta.elapsedMs / 100) / 10}s`,
@@ -77,8 +77,8 @@ function severityBadge(s: VotedRecommendation["severity"]): string {
 
 /**
  * Render the "every sample failed" scenario. This is its own path because
- * `renderFindings` with zero findings means "Oracle found nothing wrong",
- * which is actively misleading when the truth is "Oracle couldn't produce
+ * `renderFindings` with zero findings means "Witness found nothing wrong",
+ * which is actively misleading when the truth is "Witness couldn't produce
  * any findings at all". The caller should also exit non-zero.
  */
 export function renderTotalFailure(input: {
@@ -96,7 +96,7 @@ export function renderTotalFailure(input: {
 
   const lines: string[] = [];
   lines.push(
-    c.red(c.bold(`oracle: all ${input.samplesRequested} samples failed — no review produced.`)),
+    c.red(c.bold(`witness: all ${input.samplesRequested} samples failed — no review produced.`)),
   );
   lines.push("");
   lines.push(
@@ -117,10 +117,10 @@ export function renderTotalFailure(input: {
   lines.push("");
   lines.push("suggestions:");
   if (kinds.has("budget exhausted")) {
-    lines.push(`  - raise per-sample budget:  ${c.bold("oracle --budget 2.0 …")}`);
+    lines.push(`  - raise per-sample budget:  ${c.bold("witness --budget 2.0 …")}`);
   }
   if (kinds.has("turns exhausted")) {
-    lines.push(`  - raise turn cap:           ${c.bold("oracle --max-turns 80 …")}`);
+    lines.push(`  - raise turn cap:           ${c.bold("witness --max-turns 80 …")}`);
     lines.push(`  - or narrow the diff       (fewer / smaller files review faster)`);
   }
   if (kinds.has("json validation failed")) {

@@ -4,13 +4,13 @@
 **Target**: [RISKREADYEU @ e467365](https://github.com/local/RISKREADYEU/commit/e467365) — initial AES-256-GCM secret cipher implementation (pre-hardening).
 **Ground truth**: [be968af](https://github.com/local/RISKREADYEU/commit/be968af) — the follow-up commit that fixed 5 findings (1 HIGH, 4 MEDIUM) from a security review of `e467365`.
 
-This is Oracle vs. a real security review done by a human on real, production-bound crypto code. Exactly the kind of commit Oracle is supposed to help with.
+This is Witness (then called "Oracle") vs. a real security review done by a human on real, production-bound crypto code. Exactly the kind of commit Witness is supposed to help with.
 
 ## Run
 
 ```
-oracle --diff /tmp/riskready-e467365.patch --samples 5
-  cwd: /tmp/oracle-dogfood-e467365   (git worktree at e467365)
+witness --diff /tmp/riskready-e467365.patch --samples 5
+  cwd: /tmp/witness-dogfood-e467365  (git worktree at e467365)
   diff: 3,843 bytes, 2 files
   model: claude-sonnet-4-5-20250929
   budget: $1.00/sample, up to $5.00 total
@@ -20,7 +20,7 @@ oracle --diff /tmp/riskready-e467365.patch --samples 5
 
 ## Results
 
-| # | Oracle finding | Oracle severity | Match to ground truth | Reviewer severity |
+| # | Witness finding | Witness severity | Match to ground truth | Reviewer severity |
 |---|----------------|-----------------|-----------------------|-------------------|
 | 1 | Missing blob length validation before slicing auth tag | **MEDIUM** | → Finding 1 | **HIGH** |
 | 2 | Missing key length validation in `decryptSecret` (asymmetric vs. encrypt) | MEDIUM | → Finding 2 | MEDIUM |
@@ -30,7 +30,7 @@ oracle --diff /tmp/riskready-e467365.patch --samples 5
 
 - **Recall: 3 / 5 (60%)**
 - **Precision: 3 / 3 (100%)** — no false positives, no noise.
-- **Severity calibration: 1 miss** — the HIGH blob-truncation bug was downranked to MEDIUM. Concerning: the highest-impact finding is also the one Oracle under-ranked.
+- **Severity calibration: 1 miss** — the HIGH blob-truncation bug was downranked to MEDIUM. Concerning: the highest-impact finding is also the one Witness under-ranked.
 - **Cost per true positive**: $0.53.
 
 ## Misses — and what they tell us
@@ -39,17 +39,17 @@ oracle --diff /tmp/riskready-e467365.patch --samples 5
 
 > All decrypt failures now throw this single typed `SecretDecryptError` with one opaque message (`"decryption failed"`) and preserve the underlying cause privately. Closes the error-text oracle.
 
-Oracle saw the decrypt code and flagged input validation gaps, but never asked _"what does an attacker learn from the difference between these error messages?"_. That's a side-channel / information-disclosure bug — a distinct cognitive move from "does this input crash?".
+Witness saw the decrypt code and flagged input validation gaps, but never asked _"what does an attacker learn from the difference between these error messages?"_. That's a side-channel / information-disclosure bug — a distinct cognitive move from "does this input crash?".
 
-This is the most sophisticated finding in the review, and arguably the one where a human cryptographer earns their keep. Oracle did not attempt this analysis in any of the 5 samples.
+This is the most sophisticated finding in the review, and arguably the one where a human cryptographer earns their keep. Witness did not attempt this analysis in any of the 5 samples.
 
 ### Missed: Finding 5 — canonical base64 (MEDIUM)
 
 > Add `decodeStrictBase64` helper that enforces canonical base64 (`/^[A-Za-z0-9+/]+={0,2}$/`) on both inputs. Closes silent normalization on malformed/truncated envelopes.
 
-A parser-differential attack: Node's base64 decoder silently tolerates garbage characters, so two different byte sequences can decode to the same plaintext envelope. Oracle needs to know _base64 parsers vary_ and _Node's default is lenient_ — domain knowledge that didn't surface in any sample.
+A parser-differential attack: Node's base64 decoder silently tolerates garbage characters, so two different byte sequences can decode to the same plaintext envelope. Witness needs to know _base64 parsers vary_ and _Node's default is lenient_ — domain knowledge that didn't surface in any sample.
 
-## What this run tells us about Oracle
+## What this run tells us about Witness
 
 **Good signals.**
 - Zero false positives on real code. That's the thing that kills code-review tools in practice.
@@ -59,8 +59,8 @@ A parser-differential attack: Node's base64 decoder silently tolerates garbage c
 
 **Real weaknesses.**
 - **Severity calibration is off on the highest-impact finding.** A product that rates the HIGH bug as MEDIUM teaches users to trust our severities less.
-- **Misses the "attacker model" class of bugs entirely.** Side-channels, parser differentials, error-text oracles, timing leaks — Oracle stays in the "does bad input crash this" frame. The system prompt does not explicitly direct the model to adopt an adversarial mental model, and the missing-findings pattern strongly suggests it should.
-- **The harder findings are exactly the findings that matter.** If Oracle only catches the "obviously missing validation" class, a human reviewer still has to do the actual crypto review. The value case is weaker.
+- **Misses the "attacker model" class of bugs entirely.** Side-channels, parser differentials, error-text oracles, timing leaks — Witness stays in the "does bad input crash this" frame. The system prompt does not explicitly direct the model to adopt an adversarial mental model, and the missing-findings pattern strongly suggests it should.
+- **The harder findings are exactly the findings that matter.** If Witness only catches the "obviously missing validation" class, a human reviewer still has to do the actual crypto review. The value case is weaker.
 
 ## Action items
 
@@ -75,8 +75,8 @@ A parser-differential attack: Node's base64 decoder silently tolerates garbage c
 
 ## What I am NOT concluding from this
 
-- Oracle is not "ready to replace a human security reviewer on crypto code". One diff is one data point. A 60% recall on a single 5-finding commit tells us we have real gaps, not a statistic.
-- Oracle is not "bad at security". The three findings it did surface would have caught the bug in a PR. The question is whether the _missed_ findings would have shipped, and the honest answer is: on this diff, yes.
+- Witness is not "ready to replace a human security reviewer on crypto code". One diff is one data point. A 60% recall on a single 5-finding commit tells us we have real gaps, not a statistic.
+- Witness is not "bad at security". The three findings it did surface would have caught the bug in a PR. The question is whether the _missed_ findings would have shipped, and the honest answer is: on this diff, yes.
 
 ---
 
@@ -92,7 +92,7 @@ as a synthetic regression fixture for the error-text oracle class.
 ### Re-run against the same target
 
 ```
-oracle --diff /tmp/riskready-e467365.patch --samples 5 --budget 1.5
+witness --diff /tmp/riskready-e467365.patch --samples 5 --budget 1.5
   same cwd, same model, same diff
 ```
 
@@ -102,7 +102,7 @@ prompt frames the task more concretely.)
 
 ### Findings (voted)
 
-| # | Oracle finding | Severity | Votes | Ground-truth match |
+| # | Witness finding | Severity | Votes | Ground-truth match |
 |---|----------------|----------|-------|-------------------|
 | 1 | Decrypt function leaks failure mode via distinguishable errors | **HIGH** | 5/5 | → Finding 3 (error-text oracle) — **NEW** |
 | 2 | Missing IV length validation before use in AES-GCM decryption | HIGH | 3/5 | → Finding 4 (promoted HIGH) |
@@ -156,10 +156,10 @@ Run yourself (requires RISKREADYEU repo checked out locally):
 
 ```
 git -C /path/to/RISKREADYEU diff e467365^..e467365 > /tmp/e467365.patch
-git -C /path/to/RISKREADYEU worktree add /tmp/oracle-e467365 e467365
-cd /tmp/oracle-e467365
-oracle --diff /tmp/e467365.patch --samples 5 --budget 1.5
-git -C /path/to/RISKREADYEU worktree remove /tmp/oracle-e467365
+git -C /path/to/RISKREADYEU worktree add /tmp/witness-e467365 e467365
+cd /tmp/witness-e467365
+witness --diff /tmp/e467365.patch --samples 5 --budget 1.5
+git -C /path/to/RISKREADYEU worktree remove /tmp/witness-e467365
 ```
 
 Results will vary ± one finding due to sampling noise; the

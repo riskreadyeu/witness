@@ -1,6 +1,6 @@
 {
   "name": "001-missing-await",
-  "description": "Two Promise-returning calls (db.users.save on line 8 and sendEmailChangedNotification on line 9) had their `await` keywords removed. Both are regressions: the function may return before persistence completes, and any rejection becomes an unhandled promise rejection. Oracle should flag both call sites. A model that only reports one is missing half the bug.",
+  "description": "Two Promise-returning calls (db.users.save on line 8 and sendEmailChangedNotification on line 9) had their `await` keywords removed. Both are regressions: the function may return before persistence completes, and any rejection becomes an unhandled promise rejection. Witness should flag both call sites. A model that only reports one is missing half the bug.",
   "expected": [
     {
       "key": "missing-await-save",

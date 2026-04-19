@@ -1,16 +1,16 @@
-# oracle
+# witness
 
 A read-only AI pair programmer. No hands, by design.
 
-Oracle reads your diff. It does not write, run, or push. It returns
+Witness reads your diff. It does not write, run, or push. It returns
 structured recommendations — `bug`, `security`, `performance`,
 `refactor`, `architectural`, `convention`, `question` — each cited
 to a specific file and line. You decide what to do with them.
 
-> The name is deliberate. In Bostrom's taxonomy, an **Oracle** answers
+> The shape is deliberate. In Bostrom's taxonomy, an **Oracle** answers
 > questions; a **Genie** executes instructions; a **Sovereign** pursues
-> open-ended goals. The riskier categories are already well-served.
-> This one isn't.
+> open-ended goals. Witness is an Oracle in that sense: it observes and
+> reports. The riskier categories are already well-served. This one isn't.
 
 ## Design thesis
 
@@ -35,7 +35,7 @@ Requires Node 20+.
 
 ### Authentication
 
-Oracle is built on the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk).
+Witness is built on the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk).
 The SDK handles auth; we don't. You have two options:
 
 ```bash
@@ -47,32 +47,34 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 If `claude login` has been run, the SDK picks that up automatically. If not,
-it falls back to the env var. If neither is configured, Oracle will tell you
+it falls back to the env var. If neither is configured, Witness will tell you
 exactly which command to run.
 
 > **Note on Claude subscription usage.** Using your subscription token to
 > power a third-party CLI is allowed by the SDK; Anthropic's terms may evolve
-> and are on you to respect. If you're redistributing Oracle or running it
+> and are on you to respect. If you're redistributing Witness or running it
 > inside a commercial product, set `ANTHROPIC_API_KEY` instead.
 
 ## Use
 
 ```bash
 # review your uncommitted diff against HEAD
-pnpm oracle
+pnpm witness
 
 # review staged changes only
-pnpm oracle --staged
+pnpm witness --staged
 
 # review the diff from main..HEAD
-pnpm oracle --range main
+pnpm witness --range main
 
 # review a pre-built patch file
-pnpm oracle --diff ./some.patch
+pnpm witness --diff ./some.patch
 
 # machine-readable output
-pnpm oracle --json
+pnpm witness --json
 ```
+
+For workflow recipes, failure modes, and honest weaknesses, see [USAGE.md](./USAGE.md).
 
 Flags:
 
@@ -89,7 +91,7 @@ Flags:
 
 ### How context gets collected
 
-Oracle doesn't pre-bundle your codebase. Each sample is a fresh agent session
+Witness doesn't pre-bundle your codebase. Each sample is a fresh agent session
 with read-only access (`Read`, `Grep`, `Glob`) rooted at your repo. The model
 decides what to open, which call sites to trace, and which tests to inspect —
 same context budget it would use in an IDE, without the foot-guns of Write,
@@ -112,8 +114,8 @@ pnpm eval --fixture 002-sql-injection --dry-run
 
 Metrics per fixture:
 
-- **recall**    — fraction of expected findings Oracle caught
-- **precision** — fraction of Oracle's findings that match something expected
+- **recall**    — fraction of expected findings Witness caught
+- **precision** — fraction of Witness's findings that match something expected
 - **pass**      — `recall == 1` AND (`allowExtras` OR `precision == 1`)
 
 Aggregate across the pool lands in `evals/results/<timestamp>.json`.
@@ -179,7 +181,7 @@ pnpm build
   (PR comments).
 - **v0.3**: Incremental review (only re-score the diff hunks that
   changed), smarter context collection, custom ruleset per repo
-  via `.oracle/config.yaml`.
+  via `.witness/config.yaml`.
 
 ## Philosophy
 

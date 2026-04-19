@@ -1,12 +1,12 @@
 /**
  * Fixture scoring.
  *
- * A fixture has an `expected.json` listing the findings Oracle SHOULD
+ * A fixture has an `expected.json` listing the findings Witness SHOULD
  * surface for a given diff. We score a fixture by checking which
  * expecteds were hit, and tracking unexpected findings as potential
  * false positives.
  *
- * "Potential" because Oracle reviewing real code frequently finds things
+ * "Potential" because Witness reviewing real code frequently finds things
  * that are legitimate but not in our curated list — especially in
  * private fixtures. We count them for visibility but treat them as
  * warnings, not hard failures, unless the fixture's `allowExtras` is

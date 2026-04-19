@@ -2,7 +2,7 @@
  * Dissent logger — our feedback loop.
  *
  * Every time the user accepts or dismisses a recommendation, we append
- * a line to `.oracle/dissent.jsonl` in the target repo (NOT in Oracle's
+ * a line to `.witness/dissent.jsonl` in the target repo (NOT in Witness's
  * own repo — the log lives with the code being reviewed).
  *
  * This is v0.1 telemetry for US, not for the user. It lets us see which
@@ -44,7 +44,7 @@ export async function logDissent(params: {
   note?: string;
 }): Promise<void> {
   const { repoRoot, rec, action, note } = params;
-  const logPath = join(repoRoot, ".oracle", "dissent.jsonl");
+  const logPath = join(repoRoot, ".witness", "dissent.jsonl");
   await mkdir(dirname(logPath), { recursive: true });
 
   const entry: DissentEntry = {

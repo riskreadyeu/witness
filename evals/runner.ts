@@ -2,17 +2,17 @@
  * Eval runner.
  *
  * Loads every fixture under a pool directory (public, private, or both),
- * runs Oracle against its diff, scores the result, writes a results
+ * runs Witness against its diff, scores the result, writes a results
  * JSON, and prints a table.
  *
  * A "fixture" is a directory containing:
  *   - diff.patch          the input change to review
  *   - before/             (optional) files as they existed before
  *   - after/              files as they exist after the change; this is
- *                         what Oracle reads when collecting context
+ *                         what Witness reads when collecting context
  *   - expected.json       { name, description, expected: [...] }
  *
- * We pass Oracle the fixture's `after/` directory as repoRoot. The
+ * We pass Witness the fixture's `after/` directory as repoRoot. The
  * diff's `+++ b/...` paths must resolve inside `after/`.
  *
  * Usage:
@@ -26,7 +26,7 @@
 import { readdir, readFile, stat, writeFile, mkdir } from "node:fs/promises";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { review } from "../src/oracle.js";
+import { review } from "../src/witness.js";
 import { scoreFixture, aggregate, type FixtureExpected, type Score } from "./score.js";
 import type { VotedRecommendation } from "../src/schema.js";
 

@@ -1,10 +1,10 @@
 # Dogfood results
 
-Curated write-ups from running Oracle against real-world commits.
+Curated write-ups from running Witness against real-world commits.
 
 Unlike `evals/fixtures/` (synthetic, scored, regression-gated) and
 `evals/results/` (ephemeral raw JSON from `runner.ts`, gitignored), the
-files here are **product evidence** — what Oracle actually said on real
+files here are **product evidence** — what Witness actually said on real
 code, what it got right, what it got wrong, and what follow-up actions
 fell out of the exercise.
 

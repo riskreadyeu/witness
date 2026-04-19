@@ -26,7 +26,7 @@
  *
  * After extraction, open each fixture's `expected.json` and fill in:
  *   - description (what was the bug)
- *   - expected[] (what should Oracle flag)
+ *   - expected[] (what should Witness flag)
  *
  * The extractor seeds a skeleton but does NOT guess the findings.
  * Hand-curation is the whole point of a fixture.

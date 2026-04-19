@@ -20,7 +20,7 @@ export interface DiffContext {
 /**
  * Parse a unified diff and return the list of file paths that appear in
  * `+++ b/...` lines (post-change). We only care about the new side —
- * Oracle reviews what the change WILL look like, not what was deleted.
+ * Witness reviews what the change WILL look like, not what was deleted.
  */
 export function extractTouchedFiles(diff: string): string[] {
   const files: string[] = [];

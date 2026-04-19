@@ -18,7 +18,7 @@
  * Two findings on the same line that disagree on kind are two findings.
  *
  * Filtering by vote threshold is the caller's responsibility (see
- * oracle.ts). This module just counts.
+ * witness.ts). This module just counts.
  */
 
 import { createHash } from "node:crypto";

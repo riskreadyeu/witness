@@ -1,5 +1,5 @@
 /**
- * Convert Oracle's Zod schema to a JSON Schema for the Claude Agent SDK's
+ * Convert Witness's Zod schema to a JSON Schema for the Claude Agent SDK's
  * `outputFormat: { type: 'json_schema', schema }` option.
  *
  * The SDK will auto-retry the model up to N times if the output doesn't

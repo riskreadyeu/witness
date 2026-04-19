@@ -1,5 +1,5 @@
 /**
- * Oracle runtime.
+ * Witness runtime.
  *
  * Thin wrapper around the Claude Agent SDK:
  *   1. N parallel `query()` calls (Promise.all). Each is a fresh session.
@@ -31,7 +31,7 @@ import { reviewResponseJsonSchema } from "./json-schema.js";
 import { mergeSamples } from "./voting.js";
 import { buildContext, renderUserMessage } from "./diff.js";
 
-export interface OracleOptions {
+export interface WitnessOptions {
   diff: string;
   repoRoot: string;
   model?: string;
@@ -46,7 +46,7 @@ export interface OracleOptions {
   maxBudgetUsdPerSample?: number;
 }
 
-export interface OracleResult {
+export interface WitnessResult {
   findings: VotedRecommendation[];
   raw: {
     samples: Recommendation[][];
@@ -100,7 +100,7 @@ export function __resetQuery(): void {
   _query = query;
 }
 
-export async function review(opts: OracleOptions): Promise<OracleResult> {
+export async function review(opts: WitnessOptions): Promise<WitnessResult> {
   const started = Date.now();
   const model = opts.model ?? DEFAULTS.model;
   const samples = opts.samples ?? DEFAULTS.samples;

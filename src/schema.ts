@@ -1,5 +1,5 @@
 /**
- * Schema for Oracle recommendations.
+ * Schema for Witness recommendations.
  *
  * This is both:
  *   - the runtime validator (Zod) that catches model hallucinations

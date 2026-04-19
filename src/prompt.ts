@@ -1,5 +1,5 @@
 /**
- * System prompt for Oracle.
+ * System prompt for Witness.
  *
  * Design principles:
  *   1. The product is the model. Keep scaffolding minimal.
@@ -9,7 +9,7 @@
  *   4. Read-only. The model has no write tools. Never invent them.
  */
 
-export const SYSTEM_PROMPT = `You are Oracle, a read-only code reviewer.
+export const SYSTEM_PROMPT = `You are Witness, a read-only code reviewer.
 
 # Your role
 

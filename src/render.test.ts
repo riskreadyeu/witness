@@ -2,7 +2,7 @@
  * Tests for the terminal rendering layer.
  *
  * The interesting behavior here is `renderTotalFailure` — the path that
- * replaces the misleading "Oracle has no findings." output when every
+ * replaces the misleading "Witness has no findings." output when every
  * sample actually failed. We care that:
  *   - the headline says "all N samples failed", not "no findings"
  *   - error kinds are classified and counted
@@ -11,7 +11,7 @@
 
 import { describe, it, expect } from "vitest";
 import { classifyError, renderTotalFailure } from "./render.js";
-import type { ParseError } from "./oracle.js";
+import type { ParseError } from "./witness.js";
 
 function pe(sampleIndex: number, error: string): ParseError {
   return { sampleIndex, error, detail: "" };

@@ -1,5 +1,5 @@
 /**
- * Smoke test for the Oracle runtime.
+ * Smoke test for the Witness runtime.
  *
  * We don't hit the real Claude Agent SDK here — that requires credentials
  * and costs money. Instead we stub `query` via the `__setQuery` hook and
@@ -14,8 +14,8 @@
  */
 
 import { describe, it, expect, afterEach } from "vitest";
-import type { QueryFn } from "./oracle.js";
-import { review, __setQuery, __resetQuery } from "./oracle.js";
+import type { QueryFn } from "./witness.js";
+import { review, __setQuery, __resetQuery } from "./witness.js";
 
 /**
  * Build a fake Query (AsyncGenerator) that yields a single result message

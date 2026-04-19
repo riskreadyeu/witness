@@ -1,10 +1,10 @@
-# Using Oracle
+# Using Witness
 
 This is the practical guide. For the why, see `README.md`.
 
 ## What you actually get
 
-You run `oracle`, it reads the diff you're about to commit, and prints
+You run `witness`, it reads the diff you're about to commit, and prints
 a list of findings. Each finding has:
 
 - a **kind** (`bug`, `security`, `performance`, `refactor`,
@@ -14,7 +14,7 @@ a list of findings. Each finding has:
 - a **vote count** (how many of the N samples independently flagged it)
 - a **file + line range** and a short explanation
 
-That's it. Oracle does not open PRs, post comments, or edit files.
+That's it. Witness does not open PRs, post comments, or edit files.
 
 ## Before your first run
 
@@ -33,10 +33,10 @@ That's it. Oracle does not open PRs, post comments, or edit files.
 ## The four commands you'll actually use
 
 ```bash
-pnpm oracle                     # review uncommitted changes vs HEAD
-pnpm oracle --staged            # review only what's staged
-pnpm oracle --range main        # review everything between main and HEAD
-pnpm oracle --diff ./x.patch    # review a pre-built patch file
+pnpm witness                     # review uncommitted changes vs HEAD
+pnpm witness --staged            # review only what's staged
+pnpm witness --range main        # review everything between main and HEAD
+pnpm witness --diff ./x.patch    # review a pre-built patch file
 ```
 
 Add `--json` if you want machine output. Add `--quiet` if you want to
@@ -44,7 +44,7 @@ suppress progress on stderr.
 
 ## The right time to run it
 
-**Run Oracle just before you open a PR**, after you think the change is
+**Run Witness just before you open a PR**, after you think the change is
 done but before a human looks at it. That's where the value is:
 mechanical things a careful human catches on a slow day but misses on a
 busy one.
@@ -63,7 +63,7 @@ Sort your attention by this rule of thumb:
 | 2-3 / 5 | any    | Worth reading. Some will be noise. |
 | 1 / 5   | —      | Already filtered out by default (`--min-votes 2`). |
 
-Findings of kind `question` mean Oracle wants information the diff
+Findings of kind `question` mean Witness wants information the diff
 didn't give it. Answer the question in your PR description or in a
 code comment; the question itself often reveals whether there's a
 real issue.
@@ -96,7 +96,7 @@ On these categories you can trust high-vote findings close to blindly.
   will sometimes get reported as MEDIUM. Read `why` before trusting
   the severity tag.
 
-**When in doubt, Oracle is a junior reviewer, not a staff engineer.**
+**When in doubt, Witness is a junior reviewer, not a staff engineer.**
 Treat it as the pass that catches what a tired human misses, not the
 pass that replaces the review itself.
 
@@ -104,7 +104,7 @@ pass that replaces the review itself.
 
 Two cases:
 
-1. **You're sure it's wrong.** Dismiss it. Move on. Oracle is designed
+1. **You're sure it's wrong.** Dismiss it. Move on. Witness is designed
    to be quiet enough that false positives are cheap.
 2. **You're not sure.** Re-run with `--samples 7 --min-votes 4`. If the
    finding still appears with 4+ votes out of 7, that's a strong
@@ -143,13 +143,13 @@ auth issue in disguise. Confirm `claude login` or `ANTHROPIC_API_KEY`.
 
 **Pre-PR check (recommended default):**
 ```bash
-pnpm oracle
+pnpm witness
 ```
 Skim the findings. Fix the ones you agree with. Open the PR.
 
 **Pre-commit check (if your change is crypto/auth/security-adjacent):**
 ```bash
-pnpm oracle --samples 7 --min-votes 3
+pnpm witness --samples 7 --min-votes 3
 ```
 Higher N, higher threshold. Slower and more expensive, but you want
 the extra signal on security-sensitive code.
@@ -157,17 +157,17 @@ the extra signal on security-sensitive code.
 **Review a specific range (e.g. someone else's branch):**
 ```bash
 git fetch origin pull/123/head:pr-123
-pnpm oracle --range main...pr-123
+pnpm witness --range main...pr-123
 ```
 
 **CI integration (JSON out):**
 ```bash
-pnpm oracle --json --quiet > oracle.json
+pnpm witness --json --quiet > witness.json
 ```
 Machine-readable output for editor plugins or PR bots. Schema is
 `{ findings: VotedRecommendation[], meta: {...}, raw: {...} }`.
 
-## What Oracle won't do — and why that's the point
+## What Witness won't do — and why that's the point
 
 - It won't modify your code.
 - It won't run tests, commands, or shell.
