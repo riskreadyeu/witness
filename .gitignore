@@ -23,7 +23,7 @@ npm-debug.log*
 pnpm-debug.log*
 
 # witness-specific
-# private fixtures mined from closed-source repos (e.g., RiskReadyEU).
+# private fixtures mined from closed-source repos.
 # NEVER commit these. They contain proprietary code.
 # README.md is committed to document the directory's purpose.
 evals/fixtures-private/*

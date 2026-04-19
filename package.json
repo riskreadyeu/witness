@@ -13,7 +13,7 @@
     "eval": "tsx evals/runner.ts --pool public",
     "eval:all": "tsx evals/runner.ts --pool all",
     "eval:private": "tsx evals/runner.ts --pool private",
-    "extract-fixtures": "tsx evals/extract-riskreadyeu.ts",
+    "extract-fixtures": "tsx evals/extract-fixtures.ts",
     "test": "vitest run"
   },
   "dependencies": {

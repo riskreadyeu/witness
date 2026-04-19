@@ -139,7 +139,7 @@ evals/
     README.md                 # explains non-negotiables
 ```
 
-### Private fixtures (RiskReadyEU, etc.)
+### Private fixtures from your own repos
 
 If you have a closed-source repo with real bugs fixed in real commits,
 you can mine it for eval fixtures without leaking code:
@@ -161,11 +161,11 @@ Batch mode:
 ```bash
 pnpm extract-fixtures \
   --repo /path/to/repo \
-  --batch ./evals/riskreadyeu-batch.json
+  --batch ./evals/batch.json
 ```
 
-`riskreadyeu-batch.json` is a list of `{ commit, name, kind?, description? }`.
-Keep it local — it also contains SHAs from your private repo.
+`batch.json` is a list of `{ commit, name, kind?, description? }`.
+Keep it local — it contains SHAs from your private repo.
 
 ## Development
 

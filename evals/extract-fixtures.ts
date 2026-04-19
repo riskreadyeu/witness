@@ -1,5 +1,5 @@
 /**
- * Private-fixture extractor for closed-source repos (e.g., RiskReadyEU).
+ * Private-fixture extractor for closed-source repos.
  *
  * READ-ONLY by design:
  *   - We invoke `git show` and `git diff` only. We never check out,
@@ -13,16 +13,16 @@
  *
  * Usage:
  *   # single commit
- *   tsx evals/extract-riskreadyeu.ts \
- *     --repo /home/daniel/projects/RISKREADYEU \
- *     --commit be968af \
- *     --name 001-routing-typo-breaks-nav \
+ *   tsx evals/extract-fixtures.ts \
+ *     --repo /path/to/your/private/repo \
+ *     --commit <sha> \
+ *     --name 001-descriptive-fixture-name \
  *     --kind bug
  *
  *   # batch from a config file
- *   tsx evals/extract-riskreadyeu.ts \
- *     --repo /home/daniel/projects/RISKREADYEU \
- *     --batch ./evals/riskreadyeu-batch.json
+ *   tsx evals/extract-fixtures.ts \
+ *     --repo /path/to/your/private/repo \
+ *     --batch ./evals/batch.json
  *
  * After extraction, open each fixture's `expected.json` and fill in:
  *   - description (what was the bug)
@@ -84,10 +84,10 @@ function parseArgs(argv: string[]): ExtractArgs {
 }
 
 function printHelp(): void {
-  console.log(`extract-riskreadyeu — read-only private fixture extractor
+  console.log(`extract-fixtures — read-only private fixture extractor
 
 usage:
-  tsx evals/extract-riskreadyeu.ts --repo <path> (--commit <sha> --name <name> [--kind <kind>] | --batch <file>)
+  tsx evals/extract-fixtures.ts --repo <path> (--commit <sha> --name <name> [--kind <kind>] | --batch <file>)
 
 flags:
   --repo <path>     path to the source repo (read-only; never modified)
