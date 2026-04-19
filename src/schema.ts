@@ -19,9 +19,34 @@ import { z } from "zod";
 const Severity = z.enum(["critical", "high", "medium", "low"]);
 const Confidence = z.enum(["high", "medium", "low"]);
 
+/**
+ * Path containment check. The agent's tools are rooted at the repo, so
+ * every legitimate finding cites a repo-relative path. We reject anything
+ * that looks like an attempt to escape the root: absolute paths, parent
+ * traversals, home expansion, Windows drive letters, null bytes. This is
+ * defense in depth — a hijacked agent that emits `file: "../../etc/passwd"`
+ * (e.g., via prompt injection) gets rejected at parse time and never
+ * enters the voting pool or the rendered output.
+ */
+const SafeRepoPath = z
+  .string()
+  .min(1)
+  .refine(
+    (p) =>
+      !p.startsWith("/") &&
+      !p.startsWith("~") &&
+      !/^[A-Za-z]:[\\/]/.test(p) &&
+      !p.split(/[\\/]/).includes("..") &&
+      !p.includes("\0"),
+    {
+      message:
+        "file must be a repo-relative path (no absolute, no '..', no '~', no drive letter)",
+    },
+  );
+
 const Base = z.object({
   severity: Severity,
-  file: z.string().min(1),
+  file: SafeRepoPath,
   startLine: z.number().int().positive(),
   endLine: z.number().int().positive(),
   title: z.string().min(1).max(200),
