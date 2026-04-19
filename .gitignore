@@ -33,3 +33,7 @@ evals/results/
 
 # dissent log — user-local, contains private code paths
 dissent.jsonl
+
+# internal working docs — kept locally, not part of the public artifact
+PRD.md
+SPEC.md
