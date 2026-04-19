@@ -7,6 +7,11 @@ structured recommendations — `bug`, `security`, `performance`,
 `refactor`, `architectural`, `convention`, `question` — each cited
 to a specific file and line. You decide what to do with them.
 
+> **Status: personal experiment, not actively maintained.** The repo
+> is public for inspection and for anyone who wants to fork it — what's
+> here is what works for the author. Issues and PRs are not being
+> triaged. License is MIT, so do what you like with the code.
+
 > The shape is deliberate. In Bostrom's taxonomy, an **Oracle** answers
 > questions; a **Genie** executes instructions; a **Sovereign** pursues
 > open-ended goals. Witness is an Oracle in that sense: it observes and
@@ -169,19 +174,6 @@ pnpm typecheck
 pnpm test
 pnpm build
 ```
-
-## Roadmap
-
-- **v0.1 (now)**: CLI on the Claude Agent SDK, 5-sample vote, read-only
-  tools (`Read`/`Grep`/`Glob`), JSON-schema structured output,
-  subscription-or-API-key auth, 5 public fixtures, private-fixture
-  extractor.
-- **v0.2**: OS sandbox (bubblewrap / sandbox-exec / Docker) around reads
-  as defense-in-depth, MCP tool exposure, git hosted-bot integration
-  (PR comments).
-- **v0.3**: Incremental review (only re-score the diff hunks that
-  changed), smarter context collection, custom ruleset per repo
-  via `.witness/config.yaml`.
 
 ## Philosophy
 
