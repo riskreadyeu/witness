@@ -70,7 +70,7 @@ export interface ParseError {
 }
 
 const DEFAULTS = {
-  model: "claude-sonnet-4-5-20250929",
+  model: "claude-opus-4-7",
   samples: 5,
   minVotes: 2,
   maxTurnsPerSample: 40,
