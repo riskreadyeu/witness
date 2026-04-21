@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./witness.png" alt="witness" width="420"/>
+</p>
+
 # witness
 
 A read-only AI pair programmer. No hands, by design.
