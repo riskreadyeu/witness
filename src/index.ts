@@ -24,6 +24,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { review } from "./witness.js";
 import { renderFindings, renderTotalFailure } from "./render.js";
+import type { BackendKind } from "./backend.js";
 
 interface CliArgs {
   diffFile?: string;
@@ -32,6 +33,7 @@ interface CliArgs {
   samples?: number;
   minVotes?: number;
   model?: string;
+  backend?: BackendKind;
   maxBudgetUsd?: number;
   maxTurns?: number;
   json: boolean;
@@ -58,6 +60,12 @@ function parsePositiveFloat(raw: string | undefined, flag: string): number {
   return n;
 }
 
+function parseBackend(raw: string | undefined): BackendKind {
+  if (raw === "claude" || raw === "codex") return raw;
+  console.error(`--backend expects "claude" or "codex" (got: ${raw ?? "<missing>"})`);
+  process.exit(2);
+}
+
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { staged: false, json: false, quiet: false, force: false, help: false };
   for (let i = 0; i < argv.length; i++) {
@@ -78,11 +86,30 @@ function parseArgs(argv: string[]): CliArgs {
       case "--max-turns": args.maxTurns = parsePositiveInt(argv[++i], "--max-turns"); break;
       case "--budget":    args.maxBudgetUsd = parsePositiveFloat(argv[++i], "--budget"); break;
       case "--model":     args.model = argv[++i]; break;
+      case "--backend":   args.backend = parseBackend(argv[++i]); break;
       default:
         if (a.startsWith("--")) {
           console.error(`unknown flag: ${a}`);
           process.exit(2);
         }
+    }
+  }
+  // Some flags only apply to the Claude SDK backend, which enforces them
+  // in-process. Codex has its own config for analogous limits and we don't
+  // pipe these through, so silently accepting them would set up a footgun
+  // where users think they bounded the run and didn't.
+  if (args.backend === "codex") {
+    if (args.maxBudgetUsd !== undefined) {
+      console.error(
+        `--budget is not supported with --backend codex. Configure cost limits in your codex config instead.`,
+      );
+      process.exit(2);
+    }
+    if (args.maxTurns !== undefined) {
+      console.error(
+        `--max-turns is not supported with --backend codex. Configure turn limits in your codex config instead.`,
+      );
+      process.exit(2);
     }
   }
   return args;
@@ -100,19 +127,21 @@ options:
   --samples <n>         number of model samples (default 5)
   --min-votes <n>       minimum votes to surface a finding (default 2)
   --max-turns <n>       max tool-use turns per sample (default 40)
+  --backend <name>      reviewer backend: claude or codex (default claude)
   --model <id>          override the model
-  --budget <usd>        per-sample USD cap (default 1.0; total ≈ budget × samples)
+  --budget <usd>        Claude per-sample USD cap (default 1.0; total ≈ budget × samples)
   --json                emit JSON instead of human output
   --quiet, -q           suppress progress output on stderr
   --force               skip the safety rails (large-diff warning on unborn HEAD)
   -h, --help            show this help
 
 auth:
-  Authentication is handled by the Claude Agent SDK. Either:
+  For the default Claude backend, authentication is handled by the Claude Agent SDK. Either:
     - run \`claude login\` once (uses your Claude Pro/Max subscription), or
     - export ANTHROPIC_API_KEY=sk-ant-...
 
   The SDK picks whichever is configured. Subscription is preferred.
+  For \`--backend codex\`, run \`codex login\` and configure Codex first.
 `);
 }
 
@@ -278,9 +307,13 @@ async function main(): Promise<void> {
     const samples = args.samples ?? 5;
     const perSample = args.maxBudgetUsd ?? 1.0;
     const totalCap = perSample * samples;
+    const backend = args.backend ?? "claude";
+    const budgetText = backend === "claude"
+      ? ` (budget: $${perSample.toFixed(2)}/sample, up to $${totalCap.toFixed(2)} total)`
+      : "";
     console.error(
       `witness: reviewing ${diff.length.toLocaleString()} bytes of diff with ${samples} samples ` +
-        `(budget: $${perSample.toFixed(2)}/sample, up to $${totalCap.toFixed(2)} total)…`,
+        `using ${backend}${budgetText}…`,
     );
     if (fromEmptyTree) {
       console.error(
@@ -292,6 +325,7 @@ async function main(): Promise<void> {
   const result = await review({
     diff,
     repoRoot,
+    ...(args.backend           !== undefined ? { backend: args.backend } : {}),
     ...(args.samples           !== undefined ? { samples: args.samples } : {}),
     ...(args.minVotes          !== undefined ? { minVotes: args.minVotes } : {}),
     ...(args.model             !== undefined ? { model: args.model } : {}),
@@ -324,6 +358,7 @@ async function main(): Promise<void> {
         totalCostUsd: result.meta.totalCostUsd,
         elapsedMs: result.meta.elapsedMs,
         parseErrors: result.raw.parseErrors,
+        backend: result.meta.backend,
       }),
     );
     process.exit(1);
@@ -333,11 +368,14 @@ async function main(): Promise<void> {
 
   if (!args.quiet) {
     const m = result.meta;
-    console.error(
-      `\n${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ` +
-        `${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ` +
-        `${(m.elapsedMs / 1000).toFixed(1)}s`,
-    );
+    // Cost and turns are Claude-only metrics — codex doesn't expose either
+    // to us, so reporting `0 turns · $0.0000` would imply we measured zero.
+    // Show only what we actually know.
+    const trailer =
+      m.backend === "codex"
+        ? `${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  codex  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`
+        : `${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`;
+    console.error(`\n${trailer}`);
   }
 
   if (result.raw.parseErrors.length > 0) {

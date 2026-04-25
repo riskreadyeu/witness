@@ -29,6 +29,12 @@ describe("classifyError", () => {
       "json validation failed",
     );
   });
+  it("recognizes a missing codex CLI", () => {
+    expect(classifyError("sample failed Error: spawn codex ENOENT")).toBe("codex missing");
+  });
+  it("recognizes codex auth failures", () => {
+    expect(classifyError("codex exited with code 1: not signed in")).toBe("codex auth");
+  });
   it("falls back to unknown for novel errors", () => {
     expect(classifyError("ENOENT: spawn claude")).toBe("unknown");
   });

@@ -16,6 +16,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import type { QueryFn } from "./witness.js";
 import { review, __setQuery, __resetQuery } from "./witness.js";
+import type { ReviewerBackend } from "./backend.js";
 
 /**
  * Build a fake Query (AsyncGenerator) that yields a single result message
@@ -72,7 +73,7 @@ const FINDING_A = {
   title: "missing await on async call",
   why: "Line 42 returns a promise that will resolve after the function exits.",
   confidence: "high",
-};
+} as const;
 
 const FINDING_B = {
   kind: "security",
@@ -83,7 +84,7 @@ const FINDING_B = {
   title: "hardcoded API token",
   why: "Token is inlined as a constant; rotate and move to env.",
   confidence: "high",
-};
+} as const;
 
 afterEach(() => {
   __resetQuery();
@@ -201,5 +202,32 @@ describe("review()", () => {
     expect(result.raw.parseErrors.length).toBe(2);
     expect(result.raw.parseErrors[0]?.error).toBe("sample failed");
     expect(result.raw.parseErrors[0]?.detail).toMatch(/ENOENT/);
+  });
+
+  it("can run samples through an injected reviewer backend", async () => {
+    const prompts: string[] = [];
+    const backend: ReviewerBackend = {
+      async runSample({ prompt }) {
+        prompts.push(prompt);
+        return {
+          findings: [FINDING_A],
+          costUsd: 0,
+          turns: 0,
+        };
+      },
+    };
+
+    const result = await review({
+      diff: `diff --git a/src/user.ts b/src/user.ts\n+++ b/src/user.ts\n@@\n+foo\n`,
+      repoRoot: "/tmp",
+      samples: 2,
+      minVotes: 2,
+      reviewerBackend: backend,
+    });
+
+    expect(prompts).toHaveLength(2);
+    expect(result.meta.backend).toBe("custom");
+    expect(result.meta.samplesParsed).toBe(2);
+    expect(result.findings[0]?.votes).toBe(2);
   });
 });

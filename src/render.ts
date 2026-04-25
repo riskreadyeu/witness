@@ -8,6 +8,7 @@
 
 import type { VotedRecommendation } from "./schema.js";
 import type { ParseError } from "./witness.js";
+import type { BackendKind } from "./backend.js";
 
 const useColor = !process.env.NO_COLOR && process.stdout.isTTY;
 
@@ -25,18 +26,20 @@ function wrap(open: string, close: string) {
 }
 
 export function renderFindings(findings: VotedRecommendation[], meta: {
-  model: string;
+  model: string | null;
   samplesRequested: number;
   samplesParsed: number;
   elapsedMs: number;
+  backend?: BackendKind | "custom";
 }): string {
   const lines: string[] = [];
+  const modelLabel = formatModelLabel(meta.model, meta.backend);
 
   if (findings.length === 0) {
     lines.push(c.dim("Witness has no findings."));
     lines.push(
       c.gray(
-        `  ${meta.samplesParsed}/${meta.samplesRequested} samples parsed · ${meta.model} · ${Math.round(meta.elapsedMs / 100) / 10}s`,
+        `  ${meta.samplesParsed}/${meta.samplesRequested} samples parsed · ${modelLabel} · ${Math.round(meta.elapsedMs / 100) / 10}s`,
       ),
     );
     return lines.join("\n");
@@ -59,11 +62,23 @@ export function renderFindings(findings: VotedRecommendation[], meta: {
   lines.push("");
   lines.push(
     c.gray(
-      `  ${findings.length} finding${findings.length === 1 ? "" : "s"} · ${meta.samplesParsed}/${meta.samplesRequested} samples · ${meta.model} · ${Math.round(meta.elapsedMs / 100) / 10}s`,
+      `  ${findings.length} finding${findings.length === 1 ? "" : "s"} · ${meta.samplesParsed}/${meta.samplesRequested} samples · ${modelLabel} · ${Math.round(meta.elapsedMs / 100) / 10}s`,
     ),
   );
 
   return lines.join("\n");
+}
+
+/**
+ * Build a human-readable model label. The codex backend doesn't always
+ * resolve to a known model id from our side — when the user hasn't passed
+ * `--model`, codex picks from its own config and we have no honest way
+ * to label it. Don't lie; say so.
+ */
+function formatModelLabel(model: string | null, backend?: BackendKind | "custom"): string {
+  if (model) return model;
+  if (backend === "codex") return "codex (config default)";
+  return "model unspecified";
 }
 
 function severityBadge(s: VotedRecommendation["severity"]): string {
@@ -87,10 +102,13 @@ export function renderTotalFailure(input: {
   totalCostUsd: number;
   elapsedMs: number;
   parseErrors: ParseError[];
+  backend?: BackendKind | "custom";
 }): string {
   const kinds = new Map<FailureKind, number>();
   for (const e of input.parseErrors) {
-    const kind = classifyError(e.error);
+    // Classify against both fields. SDK exceptions land as
+    // error="sample failed" with the actual cause in `detail`.
+    const kind = classifyError(`${e.error} ${e.detail ?? ""}`);
     kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
   }
 
@@ -99,11 +117,22 @@ export function renderTotalFailure(input: {
     c.red(c.bold(`witness: all ${input.samplesRequested} samples failed — no review produced.`)),
   );
   lines.push("");
-  lines.push(
-    c.gray(
-      `spent $${input.totalCostUsd.toFixed(4)} over ${input.totalTurns} turns in ${(input.elapsedMs / 1000).toFixed(1)}s.`,
-    ),
-  );
+  // Codex backend doesn't expose per-sample cost or turn counts to us, so
+  // showing $0.0000 / 0 turns is misleading — say so explicitly instead of
+  // pretending we measured zero.
+  if (input.backend === "codex") {
+    lines.push(
+      c.gray(
+        `ran in ${(input.elapsedMs / 1000).toFixed(1)}s (codex backend; cost and turns not tracked).`,
+      ),
+    );
+  } else {
+    lines.push(
+      c.gray(
+        `spent $${input.totalCostUsd.toFixed(4)} over ${input.totalTurns} turns in ${(input.elapsedMs / 1000).toFixed(1)}s.`,
+      ),
+    );
+  }
   lines.push("");
   lines.push("failure breakdown:");
   for (const [kind, n] of kinds) {
@@ -112,10 +141,24 @@ export function renderTotalFailure(input: {
   lines.push("");
   lines.push("first errors:");
   for (const e of input.parseErrors.slice(0, 3)) {
-    lines.push(c.gray(`  sample ${e.sampleIndex}: ${e.error}`));
+    const tail = e.detail ? ` — ${truncate(firstLine(e.detail), 240)}` : "";
+    lines.push(c.gray(`  sample ${e.sampleIndex}: ${e.error}${tail}`));
   }
   lines.push("");
   lines.push("suggestions:");
+  if (kinds.has("codex missing")) {
+    lines.push(`  - the ${c.bold("codex")} CLI was not found on PATH. Install it:`);
+    lines.push(`      ${c.bold("npm install -g @openai/codex")}`);
+  }
+  if (kinds.has("codex auth")) {
+    lines.push(`  - codex is not authenticated. Run:`);
+    lines.push(`      ${c.bold("codex login")}`);
+  }
+  if (kinds.has("auth")) {
+    lines.push(`  - missing or invalid Claude credentials. Either:`);
+    lines.push(`      ${c.bold("claude login")}                   (uses Pro/Max subscription), or`);
+    lines.push(`      ${c.bold("export ANTHROPIC_API_KEY=sk-…")}  (uses an API key)`);
+  }
   if (kinds.has("budget exhausted")) {
     lines.push(`  - raise per-sample budget:  ${c.bold("witness --budget 2.0 …")}`);
   }
@@ -133,6 +176,9 @@ export function renderTotalFailure(input: {
 }
 
 type FailureKind =
+  | "auth"
+  | "codex missing"
+  | "codex auth"
   | "budget exhausted"
   | "turns exhausted"
   | "json validation failed"
@@ -142,7 +188,21 @@ export function classifyError(raw: string): FailureKind {
   if (/error_max_budget_usd/.test(raw)) return "budget exhausted";
   if (/error_max_turns/.test(raw)) return "turns exhausted";
   if (/json validation failed/i.test(raw)) return "json validation failed";
+  if (/spawn codex|codex.*ENOENT|ENOENT.*codex/i.test(raw)) return "codex missing";
+  if (/codex.*not.*authenticated|codex login|not signed in/i.test(raw)) return "codex auth";
+  if (/ANTHROPIC_API_KEY|claude login|invalid_api_key|\b401\b|unauthorized|authentication/i.test(raw)) {
+    return "auth";
+  }
   return "unknown";
+}
+
+function firstLine(s: string): string {
+  const i = s.indexOf("\n");
+  return i === -1 ? s : s.slice(0, i);
+}
+
+function truncate(s: string, n: number): string {
+  return s.length <= n ? s : s.slice(0, n - 1) + "…";
 }
 
 function wrapParagraph(text: string, width: number): string[] {

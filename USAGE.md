@@ -19,10 +19,14 @@ That's it. Witness does not open PRs, post comments, or edit files.
 ## Before your first run
 
 1. **Node 20+** and **pnpm**.
-2. Authenticate Claude. Pick one:
+2. Authenticate the backend you want to use. For the default Claude backend:
    ```bash
    claude login                       # uses your Claude Pro/Max subscription (preferred)
    export ANTHROPIC_API_KEY=sk-ant-… # pay-as-you-go alternative
+   ```
+   For the Codex backend:
+   ```bash
+   codex login
    ```
 3. From the repo root:
    ```bash
@@ -37,6 +41,7 @@ pnpm witness                     # review uncommitted changes vs HEAD
 pnpm witness --staged            # review only what's staged
 pnpm witness --range main        # review everything between main and HEAD
 pnpm witness --diff ./x.patch    # review a pre-built patch file
+pnpm witness --backend codex     # run the same review loop through Codex
 ```
 
 Add `--json` if you want machine output. Add `--quiet` if you want to
@@ -118,10 +123,12 @@ a type, not to argue with the finding.
 
 - A typical 5-10KB diff runs about $0.50-$1.50 at 5 samples.
 - A 13KB crypto diff ran at $0.98 / 72s in our dogfood.
-- The per-review budget cap is `$1.00` total by default (`--budget`).
+- The default Claude budget cap is `$1.00` per sample (`--budget`), so
+  a 5-sample run is capped at about `$5.00` total.
 - If you're on a Claude Pro/Max subscription and used `claude login`,
   subscription usage is effectively free — but subject to Anthropic's
   rate limits and terms.
+  Codex backend usage follows your local Codex plan and configuration.
 
 ## Common failure modes
 
@@ -167,11 +174,21 @@ pnpm witness --json --quiet > witness.json
 Machine-readable output for editor plugins or PR bots. Schema is
 `{ findings: VotedRecommendation[], meta: {...}, raw: {...} }`.
 
+**Codex-backed review:**
+```bash
+pnpm witness --backend codex --staged
+```
+This preserves Witness's voting and structured output, but uses
+`codex exec` in a read-only sandbox for each sample.
+
 ## What Witness won't do — and why that's the point
 
 - It won't modify your code.
-- It won't run tests, commands, or shell.
-- It won't make network calls beyond what the Claude Agent SDK needs.
+- The default Claude backend won't run tests, commands, or shell. The
+  Codex backend may run read-only inspection commands inside Codex's
+  read-only sandbox.
+- It won't enable web search or network fetch tools; backend auth/model calls
+  still go through the configured Claude or Codex runtime.
 - It won't read files outside the repo root you invoke it from.
 
 These aren't missing features. The read-only boundary is the product.

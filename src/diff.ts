@@ -17,6 +17,8 @@ export interface DiffContext {
   repoRoot: string;
 }
 
+export type PromptToolStyle = "claude" | "codex";
+
 /**
  * Parse a unified diff and return the list of file paths that appear in
  * `+++ b/...` lines (post-change). We only care about the new side —
@@ -53,7 +55,7 @@ export function buildContext(params: {
  * The model has Read/Grep/Glob rooted at `repoRoot`, so the prompt is
  * kept lean: the diff itself, a list of touched files, and the ask.
  */
-export function renderUserMessage(ctx: DiffContext): string {
+export function renderUserMessage(ctx: DiffContext, toolStyle: PromptToolStyle = "claude"): string {
   const parts: string[] = [];
 
   parts.push("# Diff under review\n");
@@ -65,12 +67,21 @@ export function renderUserMessage(ctx: DiffContext): string {
     parts.push("");
   }
 
-  parts.push(
-    "You have Read, Grep, and Glob rooted at the repository. Use them " +
-      "to pull in whatever surrounding context you need before producing " +
-      "findings — the file's full body, call sites, adjacent tests, " +
-      "related types. The diff alone is rarely enough.",
-  );
+  if (toolStyle === "codex") {
+    parts.push(
+      "You are running in the Codex read-only sandbox. Use read-only " +
+        "inspection commands to pull in whatever surrounding context you " +
+        "need before producing findings: full file bodies, call sites, " +
+        "adjacent tests, and related types. The diff alone is rarely enough.",
+    );
+  } else {
+    parts.push(
+      "You have Read, Grep, and Glob rooted at the repository. Use them " +
+        "to pull in whatever surrounding context you need before producing " +
+        "findings — the file's full body, call sites, adjacent tests, " +
+        "related types. The diff alone is rarely enough.",
+    );
+  }
   parts.push("");
   parts.push(
     "Return a JSON object of shape `{ findings: Recommendation[] }`. " +

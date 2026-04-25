@@ -37,6 +37,8 @@ dissent.jsonl
 # internal working docs — kept locally, not part of the public artifact
 PRD.md
 SPEC.md
+ANNOUNCEMENTS.md
+social-preview.png
 
 # dogfood write-ups reference real private commits — kept local
 evals/dogfood/

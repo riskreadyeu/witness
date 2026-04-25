@@ -30,6 +30,8 @@ import {
 import { reviewResponseJsonSchema } from "./json-schema.js";
 import { mergeSamples } from "./voting.js";
 import { buildContext, renderUserMessage } from "./diff.js";
+import type { BackendKind, ReviewerBackend } from "./backend.js";
+import { CodexCliBackend } from "./codex-backend.js";
 
 export interface WitnessOptions {
   diff: string;
@@ -44,6 +46,12 @@ export interface WitnessOptions {
    * own `maxBudgetUsd` semantics, which is per-query.
    */
   maxBudgetUsdPerSample?: number;
+  backend?: BackendKind;
+  /**
+   * Injection point for tests or embedded callers that want to provide
+   * their own read-only reviewer backend.
+   */
+  reviewerBackend?: ReviewerBackend;
 }
 
 export interface WitnessResult {
@@ -53,13 +61,21 @@ export interface WitnessResult {
     parseErrors: ParseError[];
   };
   meta: {
-    model: string;
+    /**
+     * Model identifier we ran with. `null` means we genuinely don't know —
+     * happens with the codex backend when the user hasn't passed --model
+     * and codex picks from its own config. Don't replace this with a
+     * placeholder string; downstream renderers depend on the null to
+     * decide whether to show a model fragment at all.
+     */
+    model: string | null;
     samplesRequested: number;
     samplesParsed: number;
     minVotes: number;
     totalCostUsd: number;
     totalTurns: number;
     elapsedMs: number;
+    backend: BackendKind | "custom";
   };
 }
 
@@ -102,7 +118,12 @@ export function __resetQuery(): void {
 
 export async function review(opts: WitnessOptions): Promise<WitnessResult> {
   const started = Date.now();
-  const model = opts.model ?? DEFAULTS.model;
+  const backendKind = opts.backend ?? "claude";
+  // Resolve the model. For Claude, we always know it (default or overridden).
+  // For Codex without --model, we don't — codex picks from its own config
+  // and we have no honest way to label it from our side.
+  const backendModel = opts.model ?? (backendKind === "claude" ? DEFAULTS.model : undefined);
+  const model: string | null = backendModel ?? null;
   const samples = opts.samples ?? DEFAULTS.samples;
   const minVotes = opts.minVotes ?? DEFAULTS.minVotes;
   const maxTurns = opts.maxTurnsPerSample ?? DEFAULTS.maxTurnsPerSample;
@@ -110,33 +131,33 @@ export async function review(opts: WitnessOptions): Promise<WitnessResult> {
     opts.maxBudgetUsdPerSample ?? DEFAULTS.maxBudgetUsdPerSample;
 
   const context = buildContext({ diff: opts.diff, repoRoot: opts.repoRoot });
-  const userMessage = renderUserMessage(context);
+  const userMessage = renderUserMessage(context, backendKind);
 
   // The SDK's maxBudgetUsd is per-query, and we run one query per sample.
   // We keep that contract visible to callers instead of hiding a silent
   // `/samples` division, which footgunned us into starving real-world
   // refactors on the default budget. Total run cost is bounded by
   // `maxBudgetUsdPerSample * samples` — report that honestly upstream.
-  const queryOptions: Options = {
-    model,
-    cwd: opts.repoRoot,
-    systemPrompt: SYSTEM_PROMPT,
-    tools: ["Read", "Grep", "Glob"],
-    allowedTools: ["Read", "Grep", "Glob"],
-    permissionMode: "default",
-    settingSources: [], // SDK isolation mode: don't load user CLAUDE.md etc.
-    persistSession: false, // don't litter ~/.claude/projects with our sessions
-    maxTurns,
-    maxBudgetUsd: maxBudgetUsdPerSample,
-    outputFormat: {
-      type: "json_schema",
-      schema: reviewResponseJsonSchema as Record<string, unknown>,
-    },
-  };
+  const reviewerBackend =
+    opts.reviewerBackend ??
+    (backendKind === "codex"
+      ? new CodexCliBackend()
+      : makeClaudeBackend({
+          model: model ?? DEFAULTS.model,
+          repoRoot: opts.repoRoot,
+          maxTurns,
+          maxBudgetUsdPerSample,
+        }));
 
   const settled = await Promise.all(
     Array.from({ length: samples }, (_, i) =>
-      runSample(userMessage, queryOptions).then(
+      reviewerBackend.runSample({
+        prompt: userMessage,
+        repoRoot: opts.repoRoot,
+        ...(backendModel !== undefined ? { model: backendModel } : {}),
+        maxTurns,
+        maxBudgetUsd: maxBudgetUsdPerSample,
+      }).then(
         (res) => ({ ok: true as const, index: i, ...res }),
         (err) => ({
           ok: false as const,
@@ -188,6 +209,7 @@ export async function review(opts: WitnessOptions): Promise<WitnessResult> {
       totalCostUsd,
       totalTurns,
       elapsedMs: Date.now() - started,
+      backend: opts.reviewerBackend ? "custom" : backendKind,
     },
   };
 }
@@ -200,7 +222,35 @@ interface SampleSuccess {
   rawText?: string | undefined;
 }
 
-async function runSample(
+function makeClaudeBackend(params: {
+  model: string;
+  repoRoot: string;
+  maxTurns: number;
+  maxBudgetUsdPerSample: number;
+}): ReviewerBackend {
+  const queryOptions: Options = {
+    model: params.model,
+    cwd: params.repoRoot,
+    systemPrompt: SYSTEM_PROMPT,
+    tools: ["Read", "Grep", "Glob"],
+    allowedTools: ["Read", "Grep", "Glob"],
+    permissionMode: "default",
+    settingSources: [], // SDK isolation mode: don't load user CLAUDE.md etc.
+    persistSession: false, // don't litter ~/.claude/projects with our sessions
+    maxTurns: params.maxTurns,
+    maxBudgetUsd: params.maxBudgetUsdPerSample,
+    outputFormat: {
+      type: "json_schema",
+      schema: reviewResponseJsonSchema as Record<string, unknown>,
+    },
+  };
+
+  return {
+    runSample: ({ prompt }) => runClaudeSample(prompt, queryOptions),
+  };
+}
+
+async function runClaudeSample(
   prompt: string,
   options: Options,
 ): Promise<SampleSuccess> {
@@ -242,17 +292,19 @@ async function runSample(
 
 /**
  * Defensive parser in case the SDK doesn't populate `structured_output`
- * (older runtimes, or schema retries exhausted). We fall back to trying
- * to pluck JSON out of the text result.
+ * (older runtimes, or schema retries exhausted). We strip optional code
+ * fences and pluck the outermost {...} block. The previous regex used a
+ * non-greedy capture that truncated nested JSON like `{ "findings": [...] }`
+ * at the first inner `}`, which is exactly the shape this fallback exists
+ * to recover.
  */
 function tryExtractJson(text: string): unknown {
-  const fenced = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
-  const candidate = fenced?.[1] ?? text;
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
+  const stripped = text.replace(/^\s*```(?:json)?\s*\n?|\n?\s*```\s*$/g, "");
+  const start = stripped.indexOf("{");
+  const end = stripped.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) return undefined;
   try {
-    return JSON.parse(candidate.slice(start, end + 1));
+    return JSON.parse(stripped.slice(start, end + 1));
   } catch {
     return undefined;
   }

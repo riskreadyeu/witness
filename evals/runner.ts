@@ -29,12 +29,14 @@ import { fileURLToPath } from "node:url";
 import { review } from "../src/witness.js";
 import { scoreFixture, aggregate, type FixtureExpected, type Score } from "./score.js";
 import type { VotedRecommendation } from "../src/schema.js";
+import type { BackendKind } from "../src/backend.js";
 
 interface RunnerArgs {
   pool: "public" | "private" | "all";
   samples?: number;
   minVotes?: number;
   model?: string;
+  backend?: BackendKind;
   fixtureFilter?: string;
   dryRun: boolean;
 }
@@ -64,6 +66,11 @@ function parseArgs(argv: string[]): RunnerArgs {
         break;
       }
       case "--model":     args.model = argv[++i]; break;
+      case "--backend": {
+        const raw = argv[++i];
+        if (raw === "claude" || raw === "codex") args.backend = raw;
+        break;
+      }
       case "--fixture":   args.fixtureFilter = argv[++i]; break;
       case "--dry-run":   args.dryRun = true; break;
     }
@@ -118,13 +125,19 @@ async function main(): Promise<void> {
 
   if (args.dryRun) {
     console.log(`dry-run: validating ${filtered.length} fixture(s)`);
+    let dryRunFailures = 0;
     for (const d of filtered) {
       try {
         const f = await loadFixture(d);
         console.log(`  ok  ${f.expected.name} (${f.expected.expected.length} expected findings)`);
       } catch (e) {
+        dryRunFailures++;
         console.log(`  FAIL ${d}: ${(e as Error).message}`);
       }
+    }
+    if (dryRunFailures > 0) {
+      console.error(`\n${dryRunFailures}/${filtered.length} fixture(s) failed schema validation`);
+      process.exit(1);
     }
     return;
   }
@@ -137,6 +150,7 @@ async function main(): Promise<void> {
     findings: VotedRecommendation[];
     meta?: { samplesRequested: number; samplesParsed: number; parseErrors: string[] };
   }> = [];
+  const erroredFixtures: Array<{ fixture: string; message: string }> = [];
 
   for (const d of filtered) {
     const f = await loadFixture(d);
@@ -148,6 +162,7 @@ async function main(): Promise<void> {
         ...(args.samples  !== undefined ? { samples: args.samples } : {}),
         ...(args.minVotes !== undefined ? { minVotes: args.minVotes } : {}),
         ...(args.model    !== undefined ? { model: args.model } : {}),
+        ...(args.backend  !== undefined ? { backend: args.backend } : {}),
       });
       const score = scoreFixture(f.expected, result.findings);
       scores.push(score);
@@ -174,7 +189,14 @@ async function main(): Promise<void> {
         }
       }
     } catch (e) {
-      console.log(`ERROR  ${(e as Error).message}`);
+      // The fixture didn't even produce a result — SDK threw, auth broke,
+      // model rejected the request, etc. Track it separately so the run
+      // exits non-zero. Silent failure here means CI can go green while
+      // the eval harness didn't actually evaluate.
+      const message = e instanceof Error ? (e.stack ?? e.message) : String(e);
+      erroredFixtures.push({ fixture: f.expected.name, message });
+      const headline = e instanceof Error ? e.message : String(e);
+      console.log(`ERROR  ${headline}`);
     }
   }
 
@@ -185,14 +207,24 @@ async function main(): Promise<void> {
   console.log(`recall:    ${fmtPct(agg.overallRecall)} overall`);
   console.log(`precision: ${fmtPct(agg.overallPrecision)} overall`);
   console.log(`avg findings/fixture: ${agg.avgFindingsPerFixture.toFixed(1)}`);
+  if (erroredFixtures.length > 0) {
+    console.log(`errored:   ${erroredFixtures.length}/${filtered.length} (no result produced)`);
+    for (const err of erroredFixtures) {
+      console.log(`  ! ${err.fixture}: ${err.message.split("\n")[0]}`);
+    }
+  }
 
   await mkdir(RESULTS_DIR, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const resultsPath = join(RESULTS_DIR, `run-${stamp}.json`);
-  await writeFile(resultsPath, JSON.stringify({ args, agg, scores, runResults }, null, 2), "utf-8");
+  await writeFile(
+    resultsPath,
+    JSON.stringify({ args, agg, scores, runResults, erroredFixtures }, null, 2),
+    "utf-8",
+  );
   console.log(`\nwrote ${resultsPath}`);
 
-  process.exit(agg.failed === 0 ? 0 : 1);
+  process.exit(agg.failed === 0 && erroredFixtures.length === 0 ? 0 : 1);
 }
 
 function fmtPct(n: number): string {

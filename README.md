@@ -44,7 +44,7 @@ Requires Node 20+.
 
 ### Authentication
 
-Witness is built on the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk).
+Witness defaults to the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk).
 The SDK handles auth; we don't. You have two options:
 
 ```bash
@@ -58,6 +58,12 @@ export ANTHROPIC_API_KEY=sk-ant-...
 If `claude login` has been run, the SDK picks that up automatically. If not,
 it falls back to the env var. If neither is configured, Witness will tell you
 exactly which command to run.
+
+For the Codex backend, authenticate Codex separately:
+
+```bash
+codex login
+```
 
 > **Note on Claude subscription usage.** Using your subscription token to
 > power a third-party CLI is allowed by the SDK; Anthropic's terms may evolve
@@ -79,6 +85,9 @@ pnpm witness --range main
 # review a pre-built patch file
 pnpm witness --diff ./some.patch
 
+# review with Codex instead of the Claude Agent SDK
+pnpm witness --backend codex
+
 # machine-readable output
 pnpm witness --json
 ```
@@ -92,8 +101,9 @@ Flags:
 | `--samples <n>` | 5 | model samples to vote across |
 | `--min-votes <n>` | 2 | drop findings below this vote count |
 | `--max-turns <n>` | 40 | per-sample tool-use turn cap |
+| `--backend <name>` | `claude` | reviewer backend: `claude` or `codex` |
 | `--model <id>` | `claude-opus-4-7` | override model |
-| `--budget <usd>` | 1.0 | per-sample USD cap (total ≈ `budget × samples`) |
+| `--budget <usd>` | 1.0 | Claude per-sample USD cap (total ≈ `budget × samples`) |
 | `--json` | off | machine output for editor/PR-bot integration |
 | `--quiet`, `-q` | off | suppress progress output on stderr |
 | `--force` | off | skip the large-diff safety rail on unborn-HEAD repos |
@@ -101,11 +111,11 @@ Flags:
 ### How context gets collected
 
 Witness doesn't pre-bundle your codebase. Each sample is a fresh agent session
-with read-only access (`Read`, `Grep`, `Glob`) rooted at your repo. The model
-decides what to open, which call sites to trace, and which tests to inspect —
-same context budget it would use in an IDE, without the foot-guns of Write,
-Edit, or Bash. That read-only enforcement lives in the SDK runtime, not in
-the prompt.
+rooted at your repo. With the default Claude backend, the session has only
+read-only `Read`, `Grep`, and `Glob` tools. With `--backend codex`, Witness
+shells out to `codex exec` with `--sandbox read-only` and schema-constrained
+output. In both cases, the model decides what context to inspect before
+returning structured findings.
 
 ## Use with Claude Code
 
@@ -137,6 +147,20 @@ specific patch.
 
 For tighter loops you can wire Witness as a git pre-commit hook, an MCP
 server, or a `PostToolUse` hook — same CLI, different trigger.
+
+## Use with Codex
+
+Witness can also run its reviewer samples through Codex:
+
+```bash
+pnpm witness --backend codex
+pnpm witness --backend codex --staged
+pnpm witness --backend codex --range main
+```
+
+The Codex backend keeps Witness's structured schema, voting, JSON output, and
+eval harness. It uses your local Codex configuration by default; pass
+`--model <id>` only when you want to override that config for this run.
 
 ## Evals
 
