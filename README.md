@@ -100,10 +100,10 @@ Flags:
 |---|---|---|
 | `--samples <n>` | 5 | model samples to vote across |
 | `--min-votes <n>` | 2 | drop findings below this vote count |
-| `--max-turns <n>` | 40 | per-sample tool-use turn cap |
+| `--max-turns <n>` | 40 | Claude per-sample tool-use turn cap (Claude backend only) |
 | `--backend <name>` | `claude` | reviewer backend: `claude` or `codex` |
-| `--model <id>` | `claude-opus-4-7` | override model |
-| `--budget <usd>` | 1.0 | Claude per-sample USD cap (total ≈ `budget × samples`) |
+| `--model <id>` | `claude-opus-4-7` | override model (omit on codex to use codex's configured default) |
+| `--budget <usd>` | 1.0 | Claude per-sample USD cap, total ≈ `budget × samples` (Claude backend only) |
 | `--json` | off | machine output for editor/PR-bot integration |
 | `--quiet`, `-q` | off | suppress progress output on stderr |
 | `--force` | off | skip the large-diff safety rail on unborn-HEAD repos |
@@ -161,6 +161,17 @@ pnpm witness --backend codex --range main
 The Codex backend keeps Witness's structured schema, voting, JSON output, and
 eval harness. It uses your local Codex configuration by default; pass
 `--model <id>` only when you want to override that config for this run.
+
+A few operational differences vs. the Claude backend:
+
+- **Auth lives in Codex.** Run `codex login` once before using `--backend codex`.
+- **`--budget` and `--max-turns` are not supported.** Codex enforces its own
+  cost and turn limits via its config; the CLI errors if you pass these flags
+  with `--backend codex` rather than silently ignoring them.
+- **Cost and turn counts aren't reported.** Codex doesn't expose them to us,
+  so the summary line shows wall-clock time only.
+- **Per-sample wall-clock cap.** Each codex sample is killed after 5 minutes
+  (SIGTERM, then SIGKILL) so a stuck child can't block the whole run.
 
 ## Evals
 
