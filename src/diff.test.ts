@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, symlink, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -76,6 +76,37 @@ describe("readDiffInput", () => {
       await expect(readDiffInput("../../etc/passwd", root)).rejects.toThrow(
         /resolves outside the repo root/,
       );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a symlink that points outside the repo root", async () => {
+    const root = await mkdtemp(join(tmpdir(), "witness-diff-symlink-"));
+    const outsideDir = await mkdtemp(join(tmpdir(), "witness-symlink-target-"));
+    try {
+      const target = join(outsideDir, "secret.patch");
+      await writeFile(target, "should not be read", "utf-8");
+      const linkPath = join(root, "innocent-looking.patch");
+      await symlink(target, linkPath);
+      await expect(readDiffInput(linkPath, root)).rejects.toThrow(
+        /symlink that escapes the repo root/,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+      await rm(outsideDir, { recursive: true, force: true });
+    }
+  });
+
+  it("allows a symlink that points to another file inside the repo", async () => {
+    const root = await mkdtemp(join(tmpdir(), "witness-diff-symlink-ok-"));
+    try {
+      const real = join(root, "real.patch");
+      await writeFile(real, "diff --git a/x b/x\n+++ b/x\n+inside\n", "utf-8");
+      const linkPath = join(root, "alias.patch");
+      await symlink(real, linkPath);
+      const out = await readDiffInput(linkPath, root);
+      expect(out).toContain("+inside");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

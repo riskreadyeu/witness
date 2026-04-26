@@ -11,7 +11,7 @@
  * figuring out what even changed.
  */
 
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 
 export interface DiffContext {
@@ -99,11 +99,15 @@ export function renderUserMessage(ctx: DiffContext, toolStyle: PromptToolStyle =
  *
  *   `--diff -`           read from stdin (piped patch). No file path, so
  *                        nothing to traverse.
- *   `--diff <path>`      read from disk, but only if <path> resolves inside
- *                        repoRoot. We refuse arbitrary absolute paths so a
- *                        compromised parent agent invoking Witness can't
- *                        coerce it into ingesting `~/.ssh/id_rsa` and
- *                        funneling the bytes through a finding's `why`.
+ *   `--diff <path>`      read from disk, but only if the canonical path
+ *                        (post-symlink-resolution) sits inside repoRoot.
+ *                        Two-stage check: first reject syntactic escapes
+ *                        ("../" etc.), then realpath() the file and re-check
+ *                        against the canonical repoRoot. Without the second
+ *                        check, a repo-internal symlink (e.g. an attacker-
+ *                        planted `repo/foo -> /etc/passwd`) would pass the
+ *                        first check and then have its target read by
+ *                        readFile, which silently follows symlinks.
  *
  * The agent's read tools are already sandboxed to repoRoot by the SDK /
  * codex CLI; this brings the wrapper's own input intake into line with
@@ -125,17 +129,37 @@ export async function readDiffInput(diffFile: string, repoRoot: string): Promise
   }
   const root = resolve(repoRoot);
   const absolute = resolve(root, diffFile);
-  const rel = relative(root, absolute);
-  const escapesRoot = rel === ".." || rel.startsWith(".." + sep);
-  if (escapesRoot) {
+  if (escapesRepoRoot(root, absolute)) {
+    throw outsideRepoError(diffFile, absolute, root);
+  }
+  // Canonicalize symlinks. realpath also throws ENOENT if the file is
+  // missing, which is the right behavior — let it propagate.
+  const realRoot = await realpath(root);
+  const realAbsolute = await realpath(absolute);
+  if (escapesRepoRoot(realRoot, realAbsolute)) {
     throw new Error(
-      `--diff path "${diffFile}" resolves outside the repo root.\n` +
-        `  resolved: ${absolute}\n` +
-        `  repo:     ${root}\n\n` +
-        `Witness only reads patch files from inside the repo.\n` +
-        `To feed an external patch, pipe it on stdin:\n` +
-        `  cat /path/to/patch | witness --diff -`,
+      `--diff path "${diffFile}" is a symlink that escapes the repo root.\n` +
+        `  symlink:   ${absolute}\n` +
+        `  resolves:  ${realAbsolute}\n` +
+        `  repo:      ${realRoot}\n\n` +
+        `Witness refuses to follow symlinks out of the repository.`,
     );
   }
-  return readFile(absolute, "utf-8");
+  return readFile(realAbsolute, "utf-8");
+}
+
+function escapesRepoRoot(root: string, absolute: string): boolean {
+  const rel = relative(root, absolute);
+  return rel === ".." || rel.startsWith(".." + sep);
+}
+
+function outsideRepoError(diffFile: string, absolute: string, root: string): Error {
+  return new Error(
+    `--diff path "${diffFile}" resolves outside the repo root.\n` +
+      `  resolved: ${absolute}\n` +
+      `  repo:     ${root}\n\n` +
+      `Witness only reads patch files from inside the repo.\n` +
+      `To feed an external patch, pipe it on stdin:\n` +
+      `  cat /path/to/patch | witness --diff -`,
+  );
 }
