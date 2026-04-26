@@ -34,6 +34,8 @@ import {
 import type { BackendKind } from "./backend.js";
 import { type AuthOverride, defaultBudgetForAuth, describeAuth, detectAuth } from "./auth.js";
 
+type Severity = "critical" | "high" | "medium" | "low";
+
 interface CliArgs {
   diffFile?: string;
   range?: string;
@@ -45,10 +47,19 @@ interface CliArgs {
   maxBudgetUsd?: number;
   maxTurns?: number;
   authOverride?: AuthOverride;
+  minSeverity?: Severity;
   json: boolean;
   quiet: boolean;
   force: boolean;
   help: boolean;
+}
+
+const SEV_RANK: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+
+function parseSeverity(raw: string | undefined): Severity {
+  if (raw === "critical" || raw === "high" || raw === "medium" || raw === "low") return raw;
+  console.error(`--min-severity expects critical | high | medium | low (got: ${raw ?? "<missing>"})`);
+  process.exit(2);
 }
 
 function parsePositiveInt(raw: string | undefined, flag: string): number {
@@ -94,6 +105,7 @@ function parseArgs(argv: string[]): CliArgs {
       case "--min-votes": args.minVotes = parsePositiveInt(argv[++i], "--min-votes"); break;
       case "--max-turns": args.maxTurns = parsePositiveInt(argv[++i], "--max-turns"); break;
       case "--budget":    args.maxBudgetUsd = parsePositiveFloat(argv[++i], "--budget"); break;
+      case "--min-severity": args.minSeverity = parseSeverity(argv[++i]); break;
       case "--auth": {
         const v = argv[++i];
         if (v !== "auto" && v !== "subscription" && v !== "api-key") {
@@ -152,6 +164,7 @@ options:
                         repo). Use \`--diff -\` to read a patch from stdin.
   --samples <n>         number of model samples (default 5)
   --min-votes <n>       minimum votes to surface a finding (default 2)
+  --min-severity <s>    hide findings below this severity (critical|high|medium|low)
   --max-turns <n>       max tool-use turns per sample (default 40)
   --backend <name>      reviewer backend: claude or codex (default claude)
   --model <id>          override the model
@@ -410,7 +423,18 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  console.log(renderFindings(result.findings, result.meta));
+  // Filter for display only — persist the full set so `witness dissent <id>`
+  // can still resolve IDs that were hidden by --min-severity.
+  const sevFloor = args.minSeverity ? SEV_RANK[args.minSeverity] : SEV_RANK.low;
+  const visibleFindings = result.findings.filter((f) => SEV_RANK[f.severity] <= sevFloor);
+  const hiddenCount = result.findings.length - visibleFindings.length;
+
+  console.log(renderFindings(visibleFindings, result.meta));
+  if (hiddenCount > 0 && !args.quiet) {
+    console.error(
+      `(${hiddenCount} additional finding${hiddenCount === 1 ? "" : "s"} hidden by --min-severity ${args.minSeverity}; remove the flag to see them)`,
+    );
+  }
 
   // Persist for `witness dissent <id>` lookups. Best-effort — we don't
   // want a write failure (e.g. read-only filesystem) to break the review.
@@ -433,10 +457,11 @@ async function main(): Promise<void> {
     // Cost and turns are Claude-only metrics — codex doesn't expose either
     // to us, so reporting `0 turns · $0.0000` would imply we measured zero.
     // Show only what we actually know.
+    const dollarsHint = m.auth === "subscription" ? " theoretical" : "";
     const trailer =
       m.backend === "codex"
         ? `${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  codex  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`
-        : `${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`;
+        : `${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}${dollarsHint}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`;
     console.error(`\n${trailer}`);
   }
 
