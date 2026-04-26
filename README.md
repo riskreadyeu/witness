@@ -82,8 +82,11 @@ pnpm witness --staged
 # review the diff from main..HEAD
 pnpm witness --range main
 
-# review a pre-built patch file
+# review a pre-built patch file (must live inside the repo)
 pnpm witness --diff ./some.patch
+
+# or pipe an external patch on stdin
+git format-patch -1 --stdout | pnpm witness --diff -
 
 # review with Codex instead of the Claude Agent SDK
 pnpm witness --backend codex

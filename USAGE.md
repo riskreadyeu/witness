@@ -189,6 +189,12 @@ This preserves Witness's voting and structured output, but uses
   read-only sandbox.
 - It won't enable web search or network fetch tools; backend auth/model calls
   still go through the configured Claude or Codex runtime.
-- It won't read files outside the repo root you invoke it from.
+- The reviewer agent won't read files outside the repo root. The Claude
+  backend's Read/Grep/Glob tools are sandboxed there by the SDK; the Codex
+  backend's `--sandbox read-only --cd <repoRoot>` does the same thing.
+- The CLI itself reads patch files from inside the repo (`--diff <path>`)
+  or from stdin (`--diff -`). It refuses absolute or `..`-relative paths
+  that escape the repo root, so a compromised parent agent calling
+  Witness can't coerce it into ingesting `~/.ssh/id_rsa`.
 
 These aren't missing features. The read-only boundary is the product.

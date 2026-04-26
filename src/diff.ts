@@ -11,6 +11,9 @@
  * figuring out what even changed.
  */
 
+import { readFile } from "node:fs/promises";
+import { relative, resolve, sep } from "node:path";
+
 export interface DiffContext {
   diff: string;
   touchedFiles: string[];
@@ -89,4 +92,50 @@ export function renderUserMessage(ctx: DiffContext, toolStyle: PromptToolStyle =
   );
 
   return parts.join("\n");
+}
+
+/**
+ * Read the input named by --diff. Two modes:
+ *
+ *   `--diff -`           read from stdin (piped patch). No file path, so
+ *                        nothing to traverse.
+ *   `--diff <path>`      read from disk, but only if <path> resolves inside
+ *                        repoRoot. We refuse arbitrary absolute paths so a
+ *                        compromised parent agent invoking Witness can't
+ *                        coerce it into ingesting `~/.ssh/id_rsa` and
+ *                        funneling the bytes through a finding's `why`.
+ *
+ * The agent's read tools are already sandboxed to repoRoot by the SDK /
+ * codex CLI; this brings the wrapper's own input intake into line with
+ * the same boundary the README sells.
+ */
+export async function readDiffInput(diffFile: string, repoRoot: string): Promise<string> {
+  if (diffFile === "-") {
+    if (process.stdin.isTTY) {
+      throw new Error(
+        "--diff - expects a patch on stdin, but stdin is a TTY.\n" +
+          "Pipe a patch in: `git diff | witness --diff -`",
+      );
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of process.stdin) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks).toString("utf-8");
+  }
+  const root = resolve(repoRoot);
+  const absolute = resolve(root, diffFile);
+  const rel = relative(root, absolute);
+  const escapesRoot = rel === ".." || rel.startsWith(".." + sep);
+  if (escapesRoot) {
+    throw new Error(
+      `--diff path "${diffFile}" resolves outside the repo root.\n` +
+        `  resolved: ${absolute}\n` +
+        `  repo:     ${root}\n\n` +
+        `Witness only reads patch files from inside the repo.\n` +
+        `To feed an external patch, pipe it on stdin:\n` +
+        `  cat /path/to/patch | witness --diff -`,
+    );
+  }
+  return readFile(absolute, "utf-8");
 }

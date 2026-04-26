@@ -20,8 +20,8 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { readDiffInput } from "./diff.js";
 import { review } from "./witness.js";
 import { renderFindings, renderTotalFailure } from "./render.js";
 import type { BackendKind } from "./backend.js";
@@ -123,7 +123,8 @@ usage: witness [options]
 options:
   --staged              review staged diff only
   --range <ref>         review diff between <ref> and working tree
-  --diff <file>         review a pre-built .patch file
+  --diff <file>         review a pre-built .patch file (must live inside the
+                        repo). Use \`--diff -\` to read a patch from stdin.
   --samples <n>         number of model samples (default 5)
   --min-votes <n>       minimum votes to surface a finding (default 2)
   --max-turns <n>       max tool-use turns per sample (default 40)
@@ -185,9 +186,10 @@ interface DiffSource {
   fromEmptyTree: boolean;
 }
 
+
 async function getDiff(args: CliArgs, repoRoot: string): Promise<DiffSource> {
   if (args.diffFile) {
-    const diff = await readFile(resolve(args.diffFile), "utf-8");
+    const diff = await readDiffInput(args.diffFile, repoRoot);
     return { diff, fromEmptyTree: false };
   }
   if (args.range) {
