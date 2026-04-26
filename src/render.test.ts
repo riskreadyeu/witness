@@ -35,8 +35,11 @@ describe("classifyError", () => {
   it("recognizes codex auth failures", () => {
     expect(classifyError("codex exited with code 1: not signed in")).toBe("codex auth");
   });
+  it("recognizes a missing claude CLI", () => {
+    expect(classifyError("sample failed Error: spawn claude ENOENT")).toBe("claude missing");
+  });
   it("falls back to unknown for novel errors", () => {
-    expect(classifyError("ENOENT: spawn claude")).toBe("unknown");
+    expect(classifyError("EACCES: permission denied opening /tmp/foo")).toBe("unknown");
   });
 });
 

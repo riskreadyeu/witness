@@ -46,8 +46,10 @@ describe("CodexCliBackend", () => {
     expect(calls[0]!.args).toContain("exec");
     expect(calls[0]!.args).toContain("--sandbox");
     expect(calls[0]!.args).toContain("read-only");
-    expect(calls[0]!.args).toContain("--ask-for-approval");
-    expect(calls[0]!.args).toContain("never");
+    // codex 0.125 dropped --ask-for-approval; we must not pass it any more
+    // (codex now exits with "unexpected argument"). exec is non-interactive
+    // by design, so the read-only sandbox alone is the boundary.
+    expect(calls[0]!.args).not.toContain("--ask-for-approval");
     expect(calls[0]!.args).toContain("--cd");
     expect(calls[0]!.args).toContain("/repo");
     expect(calls[0]!.args).toContain("--output-schema");
@@ -55,6 +57,8 @@ describe("CodexCliBackend", () => {
     expect(calls[0]!.args).toContain("-m");
     expect(calls[0]!.args).toContain("gpt-5.2");
     expect(calls[0]!.args.at(-1)).toBe("-");
+    // The escape hatch that would void the read-only invariant must never
+    // sneak into our args.
     expect(calls[0]!.args).not.toContain("--dangerously-bypass-approvals-and-sandbox");
   });
 

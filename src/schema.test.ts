@@ -48,3 +48,38 @@ describe("RecommendationSchema file path containment", () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe("RecommendationSchema line-range invariant", () => {
+  it("accepts a single-line finding (start == end)", () => {
+    const result = RecommendationSchema.safeParse({
+      ...validBase,
+      file: "src/x.ts",
+      startLine: 42,
+      endLine: 42,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a multi-line finding when end > start", () => {
+    const result = RecommendationSchema.safeParse({
+      ...validBase,
+      file: "src/x.ts",
+      startLine: 10,
+      endLine: 20,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects transposed ranges where endLine < startLine", () => {
+    const result = RecommendationSchema.safeParse({
+      ...validBase,
+      file: "src/x.ts",
+      startLine: 20,
+      endLine: 10,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.message).toMatch(/endLine.*startLine/);
+    }
+  });
+});

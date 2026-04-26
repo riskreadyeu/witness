@@ -154,6 +154,10 @@ export function renderTotalFailure(input: {
     lines.push(`  - codex is not authenticated. Run:`);
     lines.push(`      ${c.bold("codex login")}`);
   }
+  if (kinds.has("claude missing")) {
+    lines.push(`  - the ${c.bold("claude")} CLI was not found on PATH. Install it:`);
+    lines.push(`      ${c.bold("npm install -g @anthropic-ai/claude-code")}`);
+  }
   if (kinds.has("auth")) {
     lines.push(`  - missing or invalid Claude credentials. Either:`);
     lines.push(`      ${c.bold("claude login")}                   (uses Pro/Max subscription), or`);
@@ -177,6 +181,7 @@ export function renderTotalFailure(input: {
 
 type FailureKind =
   | "auth"
+  | "claude missing"
   | "codex missing"
   | "codex auth"
   | "budget exhausted"
@@ -189,6 +194,7 @@ export function classifyError(raw: string): FailureKind {
   if (/error_max_turns/.test(raw)) return "turns exhausted";
   if (/json validation failed/i.test(raw)) return "json validation failed";
   if (/spawn codex|codex.*ENOENT|ENOENT.*codex/i.test(raw)) return "codex missing";
+  if (/spawn claude|claude.*ENOENT|ENOENT.*claude/i.test(raw)) return "claude missing";
   if (/codex.*not.*authenticated|codex login|not signed in/i.test(raw)) return "codex auth";
   if (/ANTHROPIC_API_KEY|claude login|invalid_api_key|\b401\b|unauthorized|authentication/i.test(raw)) {
     return "auth";

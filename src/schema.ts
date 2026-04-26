@@ -54,15 +54,30 @@ const Base = z.object({
   confidence: Confidence,
 });
 
-export const RecommendationSchema = z.discriminatedUnion("kind", [
-  Base.extend({ kind: z.literal("bug") }),
-  Base.extend({ kind: z.literal("security") }),
-  Base.extend({ kind: z.literal("performance") }),
-  Base.extend({ kind: z.literal("refactor") }),
-  Base.extend({ kind: z.literal("architectural") }),
-  Base.extend({ kind: z.literal("convention") }),
-  Base.extend({ kind: z.literal("question") }),
-]);
+export const RecommendationSchema = z
+  .discriminatedUnion("kind", [
+    Base.extend({ kind: z.literal("bug") }),
+    Base.extend({ kind: z.literal("security") }),
+    Base.extend({ kind: z.literal("performance") }),
+    Base.extend({ kind: z.literal("refactor") }),
+    Base.extend({ kind: z.literal("architectural") }),
+    Base.extend({ kind: z.literal("convention") }),
+    Base.extend({ kind: z.literal("question") }),
+  ])
+  // Reject impossible line ranges (e.g. 20..10). We only check positivity at
+  // the field level; the cross-field invariant that endLine >= startLine
+  // belongs here. A model occasionally emits transposed ranges, and rendering
+  // them as `file:20-10` is a worse UX than silently dropping the finding
+  // and letting the user see N-1/N parsed.
+  .superRefine((rec, ctx) => {
+    if (rec.endLine < rec.startLine) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["endLine"],
+        message: `endLine (${rec.endLine}) must be >= startLine (${rec.startLine})`,
+      });
+    }
+  });
 
 export type Recommendation = z.infer<typeof RecommendationSchema>;
 export type RecommendationKind = Recommendation["kind"];

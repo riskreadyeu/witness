@@ -31,12 +31,14 @@ export class CodexCliBackend implements ReviewerBackend {
     try {
       await writeFile(schemaPath, JSON.stringify(reviewResponseJsonSchema, null, 2), "utf-8");
 
+      // codex 0.125 dropped --ask-for-approval; `exec` is already
+      // non-interactive, so the read-only sandbox is the actual boundary.
+      // Do NOT add --dangerously-bypass-approvals-and-sandbox here — that
+      // is precisely the flag that would void the read-only invariant.
       const args = [
         "exec",
         "--sandbox",
         "read-only",
-        "--ask-for-approval",
-        "never",
         "--cd",
         options.repoRoot,
         "--output-schema",
