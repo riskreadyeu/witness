@@ -24,6 +24,13 @@ import { resolve } from "node:path";
 import { readDiffInput } from "./diff.js";
 import { review } from "./witness.js";
 import { renderFindings, renderTotalFailure } from "./render.js";
+import {
+  type DissentAction,
+  loadLastReview,
+  logDissent,
+  persistLastReview,
+  resolveFindingByIdPrefix,
+} from "./dissent.js";
 import type { BackendKind } from "./backend.js";
 
 interface CliArgs {
@@ -118,7 +125,12 @@ function parseArgs(argv: string[]): CliArgs {
 function printHelp(): void {
   console.log(`witness — read-only AI code review
 
-usage: witness [options]
+usage:
+  witness [options]                              review the current diff
+  witness dissent <id> --action <a> [--note ""]  log accepted|dismissed|deferred
+                                                  on a finding from the last
+                                                  review (see --help on the
+                                                  subcommand for details)
 
 options:
   --staged              review staged diff only
@@ -275,7 +287,16 @@ function explainError(err: unknown): string {
 }
 
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+
+  // Subcommand dispatch — keep the regular review path the default so
+  // `witness` with no args still does the most common thing. We only peel
+  // off `dissent` here; everything else falls through to flag parsing.
+  if (argv[0] === "dissent") {
+    return runDissent(argv.slice(1));
+  }
+
+  const args = parseArgs(argv);
   if (args.help) { printHelp(); return; }
 
   const repoRoot = git(["rev-parse", "--show-toplevel"], process.cwd()).trim();
@@ -368,6 +389,22 @@ async function main(): Promise<void> {
 
   console.log(renderFindings(result.findings, result.meta));
 
+  // Persist for `witness dissent <id>` lookups. Best-effort — we don't
+  // want a write failure (e.g. read-only filesystem) to break the review.
+  if (result.findings.length > 0) {
+    try {
+      await persistLastReview(repoRoot, result.findings);
+    } catch (e) {
+      if (!args.quiet) {
+        console.error(
+          `witness: warning — couldn't persist last-review for dissent: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
+    }
+  }
+
   if (!args.quiet) {
     const m = result.meta;
     // Cost and turns are Claude-only metrics — codex doesn't expose either
@@ -386,6 +423,100 @@ async function main(): Promise<void> {
       console.error(`  sample ${e.sampleIndex}: ${e.error}`);
     }
   }
+}
+
+/**
+ * `witness dissent <id> --action <accepted|dismissed|deferred> [--note "..."]`
+ *
+ * Records the user's verdict on a finding from the most recent review. The
+ * log lives at `<repoRoot>/.witness/dissent.jsonl` (gitignored) and is the
+ * closed feedback loop: it's how we learn which findings matter. v0.1
+ * is local-only — no network, no upload. The user owns the data.
+ */
+async function runDissent(argv: string[]): Promise<void> {
+  let id: string | undefined;
+  let action: DissentAction | undefined;
+  let note: string | undefined;
+
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (!a) continue;
+    if (a === "--action") {
+      const v = argv[++i];
+      if (v !== "accepted" && v !== "dismissed" && v !== "deferred") {
+        console.error(
+          `--action expects one of: accepted, dismissed, deferred (got: ${v ?? "<missing>"})`,
+        );
+        process.exit(2);
+      }
+      action = v;
+    } else if (a === "--note") {
+      note = argv[++i];
+    } else if (a === "-h" || a === "--help") {
+      console.log(
+        `witness dissent <id> --action <accepted|dismissed|deferred> [--note "..."]\n\n` +
+          `Record your verdict on a finding from the most recent review.\n` +
+          `<id> may be any unambiguous prefix of the finding's id (shown as #abcd1234\n` +
+          `next to each title). Logs to .witness/dissent.jsonl in the repo.`,
+      );
+      return;
+    } else if (!a.startsWith("-") && id === undefined) {
+      id = a;
+    } else {
+      console.error(`unknown argument: ${a}`);
+      process.exit(2);
+    }
+  }
+
+  if (!id) {
+    console.error("witness dissent: missing <id>. Run `witness dissent --help`.");
+    process.exit(2);
+  }
+  if (!action) {
+    console.error(
+      "witness dissent: missing --action. Pick one: accepted, dismissed, deferred.",
+    );
+    process.exit(2);
+  }
+
+  const repoRoot = git(["rev-parse", "--show-toplevel"], process.cwd()).trim();
+  const last = await loadLastReview(repoRoot);
+  if (!last) {
+    console.error(
+      "witness dissent: no recent review to dissent against.\n" +
+        "Run `witness` first to produce findings, then dissent against the IDs it prints.",
+    );
+    process.exit(1);
+  }
+
+  const lookup = resolveFindingByIdPrefix(last.findings, id);
+  if (lookup.kind === "missing") {
+    console.error(
+      `witness dissent: no finding matches id "${id}" in the last review (${last.ts}).\n` +
+        `IDs are 12-char hex; you can pass any unambiguous prefix (8 chars is plenty).`,
+    );
+    process.exit(1);
+  }
+  if (lookup.kind === "ambiguous") {
+    console.error(
+      `witness dissent: id prefix "${id}" matches ${lookup.matches.length} findings:`,
+    );
+    for (const m of lookup.matches) {
+      console.error(`  #${m.id}  ${m.kind}  ${m.file}:${m.startLine}  ${m.title}`);
+    }
+    console.error("Pass a longer prefix to disambiguate.");
+    process.exit(1);
+  }
+
+  await logDissent({
+    repoRoot,
+    rec: lookup.finding,
+    action,
+    ...(note !== undefined ? { note } : {}),
+  });
+  console.log(
+    `witness: logged ${action} for #${lookup.finding.id} (${lookup.finding.title})`,
+  );
 }
 
 main().catch((e) => {

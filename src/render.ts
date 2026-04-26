@@ -48,7 +48,7 @@ export function renderFindings(findings: VotedRecommendation[], meta: {
   for (const f of findings) {
     lines.push("");
     lines.push(
-      `${severityBadge(f.severity)} ${c.bold(f.title)}`,
+      `${severityBadge(f.severity)} ${c.bold(f.title)}  ${c.gray(`#${f.id.slice(0, 8)}`)}`,
     );
     lines.push(
       c.gray(
@@ -63,6 +63,14 @@ export function renderFindings(findings: VotedRecommendation[], meta: {
   lines.push(
     c.gray(
       `  ${findings.length} finding${findings.length === 1 ? "" : "s"} · ${meta.samplesParsed}/${meta.samplesRequested} samples · ${modelLabel} · ${Math.round(meta.elapsedMs / 100) / 10}s`,
+    ),
+  );
+  // Closed feedback loop: tell users how to mark a finding as accepted /
+  // dismissed / deferred. The dissent log is what lets us tune precision
+  // with signal instead of vibes.
+  lines.push(
+    c.gray(
+      `  log dissent: ${c.bold("witness dissent <id> --action accepted|dismissed|deferred")}`,
     ),
   );
 

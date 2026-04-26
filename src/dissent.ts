@@ -13,7 +13,7 @@
  * gitignore ships with "dissent.jsonl" already excluded.
  */
 
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { VotedRecommendation } from "./schema.js";
 
@@ -66,4 +66,60 @@ export async function logDissent(params: {
   };
 
   await appendFile(logPath, JSON.stringify(entry) + "\n", "utf-8");
+}
+
+/**
+ * Persist the most recent review's findings so a later `witness dissent <id>`
+ * invocation can look them up. Overwrites previous run — we only support
+ * dissent against the most-recent review. Storing every historical run was
+ * tempting but adds disk-cleanup obligations and a stale-IDs problem; the
+ * single-slot model is honest about what `witness dissent` actually means.
+ *
+ * Lives at `<repoRoot>/.witness/last-review.json`. The .witness directory
+ * is already gitignored.
+ */
+export interface LastReview {
+  ts: string;
+  findings: VotedRecommendation[];
+}
+
+export async function persistLastReview(
+  repoRoot: string,
+  findings: VotedRecommendation[],
+): Promise<void> {
+  const path = join(repoRoot, ".witness", "last-review.json");
+  await mkdir(dirname(path), { recursive: true });
+  const payload: LastReview = {
+    ts: new Date().toISOString(),
+    findings,
+  };
+  await writeFile(path, JSON.stringify(payload, null, 2), "utf-8");
+}
+
+export async function loadLastReview(repoRoot: string): Promise<LastReview | null> {
+  const path = join(repoRoot, ".witness", "last-review.json");
+  try {
+    const raw = await readFile(path, "utf-8");
+    return JSON.parse(raw) as LastReview;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw e;
+  }
+}
+
+/**
+ * Resolve a user-supplied ID prefix against the last review's findings.
+ * IDs are 12-char hex; users typing them are likely to copy a short
+ * prefix. We accept any prefix that's unambiguous.
+ */
+export function resolveFindingByIdPrefix(
+  findings: VotedRecommendation[],
+  prefix: string,
+): { kind: "found"; finding: VotedRecommendation }
+  | { kind: "ambiguous"; matches: VotedRecommendation[] }
+  | { kind: "missing" } {
+  const matches = findings.filter((f) => f.id.startsWith(prefix));
+  if (matches.length === 0) return { kind: "missing" };
+  if (matches.length === 1) return { kind: "found", finding: matches[0]! };
+  return { kind: "ambiguous", matches };
 }

@@ -115,6 +115,18 @@ Two cases:
    finding still appears with 4+ votes out of 7, that's a strong
    signal. If it drops out, it was noise.
 
+Either way, log it. Each finding renders with a short id (`#abcd1234`):
+
+```bash
+witness dissent abcd1234 --action dismissed --note "false positive"
+witness dissent abcd1234 --action accepted
+witness dissent abcd1234 --action deferred  --note "valid, next sprint"
+```
+
+Writes to `.witness/dissent.jsonl` (gitignored). This is the feedback
+signal that tells you which findings mattered — read it back monthly
+and you'll see whether your `--min-votes` threshold is right.
+
 For `question` kind: the model is telling you it doesn't know something
 about your codebase. Usually the answer is to add a comment or update
 a type, not to argue with the finding.

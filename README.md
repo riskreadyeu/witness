@@ -176,6 +176,23 @@ A few operational differences vs. the Claude backend:
 - **Per-sample wall-clock cap.** Each codex sample is killed after 5 minutes
   (SIGTERM, then SIGKILL) so a stuck child can't block the whole run.
 
+## Dissent
+
+Every Witness finding is rendered with a short id (`#abcd1234`). After you
+read a finding and decide whether it's right, log your verdict:
+
+```bash
+witness dissent abcd1234 --action accepted
+witness dissent abcd1234 --action dismissed --note "false positive — intentional"
+witness dissent abcd1234 --action deferred  --note "valid, fixing in next sprint"
+```
+
+This appends to `<repoRoot>/.witness/dissent.jsonl` (gitignored, local-only).
+The point is the closed feedback loop — dissent log is what tells you which
+findings actually mattered, so prompt tweaks and voting thresholds can be
+tuned with signal instead of vibes. Witness only keeps the most recent
+review on disk for ID lookup; dissent against older runs needs the full id.
+
 ## Evals
 
 Quality of a reviewer is measured on precision, not just recall.
