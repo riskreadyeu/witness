@@ -135,12 +135,36 @@ a type, not to argue with the finding.
 
 - A typical 5-10KB diff runs about $0.50-$1.50 at 5 samples.
 - A 13KB crypto diff ran at $0.98 / 72s in our dogfood.
-- The default Claude budget cap is `$1.00` per sample (`--budget`), so
-  a 5-sample run is capped at about `$5.00` total.
-- If you're on a Claude Pro/Max subscription and used `claude login`,
-  subscription usage is effectively free — but subject to Anthropic's
-  rate limits and terms.
-  Codex backend usage follows your local Codex plan and configuration.
+
+### About `--budget` and the two auth modes
+
+The `--budget` flag is a per-sample cap that the SDK enforces by aborting
+the query when reported `total_cost_usd` exceeds it. The cap fires the
+same way under both auth modes — what differs is whether the dollars are
+real money or theoretical:
+
+| Auth                                     | Dollars reported          | Dollars you pay |
+|------------------------------------------|---------------------------|-----------------|
+| `claude login` (Pro/Max subscription)    | theoretical (tokens × rate card) | $0 — flat-rate subscription |
+| `ANTHROPIC_API_KEY`                      | actual                    | what the SDK reports |
+
+On subscription the cap is a **runaway-loop backstop**, not a wallet
+protection. So Witness picks the default budget based on detected auth:
+
+- **Subscription** (auto-detected from `~/.claude/.credentials.json`)
+  → default `$10.00` per sample. Generous; you'll basically never hit it.
+- **API key** (no subscription file, `ANTHROPIC_API_KEY` set)
+  → default `$1.00` per sample. Tight; protects you from runaway spend.
+
+Override the auto-detection with `--auth subscription | api-key | auto`.
+Override the budget directly with `--budget <usd>`. The Codex backend
+ignores both — it has its own config.
+
+The actual subscription bottleneck isn't dollars; it's Anthropic's
+rate limits (5-hour message windows, weekly tier caps). If you're
+running Witness all day on subscription you'll hit those well before
+any dollar figure becomes interesting, and they surface as
+`rate_limit_error` in per-sample failure detail.
 
 ## Common failure modes
 

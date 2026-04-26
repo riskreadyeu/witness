@@ -31,6 +31,10 @@ evals/fixtures-private/*
 evals/results/
 .witness/
 
+# When you dogfood spec against this repo's PRD, spec writes its own
+# state here. Local-only, never committed.
+.spec/
+
 # dissent log — user-local, contains private code paths
 dissent.jsonl
 

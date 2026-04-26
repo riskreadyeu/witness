@@ -32,6 +32,7 @@ import { mergeSamples } from "./voting.js";
 import { buildContext, renderUserMessage } from "./diff.js";
 import type { BackendKind, ReviewerBackend } from "./backend.js";
 import { CodexCliBackend } from "./codex-backend.js";
+import { type AuthMode, type AuthOverride, defaultBudgetForAuth, detectAuth } from "./auth.js";
 
 export interface WitnessOptions {
   diff: string;
@@ -46,6 +47,12 @@ export interface WitnessOptions {
    * own `maxBudgetUsd` semantics, which is per-query.
    */
   maxBudgetUsdPerSample?: number;
+  /**
+   * Override auth detection. "auto" runs detection; "subscription" / "api-key"
+   * force a mode. The mode only affects the default budget — the SDK still
+   * picks credentials its own way.
+   */
+  authOverride?: AuthOverride;
   backend?: BackendKind;
   /**
    * Injection point for tests or embedded callers that want to provide
@@ -76,6 +83,9 @@ export interface WitnessResult {
     totalTurns: number;
     elapsedMs: number;
     backend: BackendKind | "custom";
+    auth: AuthMode;
+    /** The actual per-sample budget that was applied (defaulted or set). */
+    budgetUsdPerSample: number;
   };
 }
 
@@ -90,14 +100,6 @@ const DEFAULTS = {
   samples: 5,
   minVotes: 2,
   maxTurnsPerSample: 40,
-  /**
-   * Per-sample cap. Real-world multi-file diffs need room to Read/Grep
-   * before emitting findings — empirically a 13 KB / 5-file refactor
-   * burns ~$0.34/sample. $1.00/sample gives Sonnet the headroom to
-   * actually finish, and the `--budget` flag is honest about what a
-   * full run costs: budget × samples.
-   */
-  maxBudgetUsdPerSample: 1.0,
 };
 
 /**
@@ -127,8 +129,9 @@ export async function review(opts: WitnessOptions): Promise<WitnessResult> {
   const samples = opts.samples ?? DEFAULTS.samples;
   const minVotes = opts.minVotes ?? DEFAULTS.minVotes;
   const maxTurns = opts.maxTurnsPerSample ?? DEFAULTS.maxTurnsPerSample;
+  const auth = detectAuth(opts.authOverride);
   const maxBudgetUsdPerSample =
-    opts.maxBudgetUsdPerSample ?? DEFAULTS.maxBudgetUsdPerSample;
+    opts.maxBudgetUsdPerSample ?? defaultBudgetForAuth(auth);
 
   const context = buildContext({ diff: opts.diff, repoRoot: opts.repoRoot });
   const userMessage = renderUserMessage(context, backendKind);
@@ -210,6 +213,8 @@ export async function review(opts: WitnessOptions): Promise<WitnessResult> {
       totalTurns,
       elapsedMs: Date.now() - started,
       backend: opts.reviewerBackend ? "custom" : backendKind,
+      auth,
+      budgetUsdPerSample: maxBudgetUsdPerSample,
     },
   };
 }

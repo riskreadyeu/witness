@@ -32,6 +32,7 @@ import {
   resolveFindingByIdPrefix,
 } from "./dissent.js";
 import type { BackendKind } from "./backend.js";
+import { type AuthOverride, defaultBudgetForAuth, describeAuth, detectAuth } from "./auth.js";
 
 interface CliArgs {
   diffFile?: string;
@@ -43,6 +44,7 @@ interface CliArgs {
   backend?: BackendKind;
   maxBudgetUsd?: number;
   maxTurns?: number;
+  authOverride?: AuthOverride;
   json: boolean;
   quiet: boolean;
   force: boolean;
@@ -92,6 +94,17 @@ function parseArgs(argv: string[]): CliArgs {
       case "--min-votes": args.minVotes = parsePositiveInt(argv[++i], "--min-votes"); break;
       case "--max-turns": args.maxTurns = parsePositiveInt(argv[++i], "--max-turns"); break;
       case "--budget":    args.maxBudgetUsd = parsePositiveFloat(argv[++i], "--budget"); break;
+      case "--auth": {
+        const v = argv[++i];
+        if (v !== "auto" && v !== "subscription" && v !== "api-key") {
+          console.error(
+            `--auth expects auto, subscription, or api-key (got: ${v ?? "<missing>"})`,
+          );
+          process.exit(2);
+        }
+        args.authOverride = v;
+        break;
+      }
       case "--model":     args.model = argv[++i]; break;
       case "--backend":   args.backend = parseBackend(argv[++i]); break;
       default:
@@ -142,7 +155,12 @@ options:
   --max-turns <n>       max tool-use turns per sample (default 40)
   --backend <name>      reviewer backend: claude or codex (default claude)
   --model <id>          override the model
-  --budget <usd>        Claude per-sample USD cap (default 1.0; total ≈ budget × samples)
+  --budget <usd>        Claude per-sample USD cap. Default depends on auth:
+                          subscription → $10 (theoretical, you don't pay it)
+                          api-key      → $1  (real money, runaway protection)
+                        Not supported with --backend codex.
+  --auth <mode>         auto | subscription | api-key (default: auto-detect
+                          from presence of ~/.claude/.credentials.json)
   --json                emit JSON instead of human output
   --quiet, -q           suppress progress output on stderr
   --force               skip the safety rails (large-diff warning on unborn HEAD)
@@ -328,12 +346,16 @@ async function main(): Promise<void> {
 
   if (!args.quiet) {
     const samples = args.samples ?? 5;
-    const perSample = args.maxBudgetUsd ?? 1.0;
-    const totalCap = perSample * samples;
     const backend = args.backend ?? "claude";
-    const budgetText = backend === "claude"
-      ? ` (budget: $${perSample.toFixed(2)}/sample, up to $${totalCap.toFixed(2)} total)`
-      : "";
+    let budgetText = "";
+    if (backend === "claude") {
+      const auth = detectAuth(args.authOverride);
+      const perSample = args.maxBudgetUsd ?? defaultBudgetForAuth(auth);
+      const totalCap = perSample * samples;
+      const dollarsHint = auth === "subscription" ? " theoretical" : "";
+      budgetText =
+        ` (${describeAuth(auth)}, $${perSample.toFixed(2)}${dollarsHint}/sample, up to $${totalCap.toFixed(2)} total)`;
+    }
     console.error(
       `witness: reviewing ${diff.length.toLocaleString()} bytes of diff with ${samples} samples ` +
         `using ${backend}${budgetText}…`,
@@ -354,6 +376,7 @@ async function main(): Promise<void> {
     ...(args.model             !== undefined ? { model: args.model } : {}),
     ...(args.maxBudgetUsd      !== undefined ? { maxBudgetUsdPerSample: args.maxBudgetUsd } : {}),
     ...(args.maxTurns          !== undefined ? { maxTurnsPerSample: args.maxTurns } : {}),
+    ...(args.authOverride      !== undefined ? { authOverride: args.authOverride } : {}),
   });
 
   if (args.json) {

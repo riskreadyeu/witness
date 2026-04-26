@@ -106,7 +106,8 @@ Flags:
 | `--max-turns <n>` | 40 | Claude per-sample tool-use turn cap (Claude backend only) |
 | `--backend <name>` | `claude` | reviewer backend: `claude` or `codex` |
 | `--model <id>` | `claude-opus-4-7` | override model (omit on codex to use codex's configured default) |
-| `--budget <usd>` | 1.0 | Claude per-sample USD cap, total ≈ `budget × samples` (Claude backend only) |
+| `--budget <usd>` | $10 (subscription) / $1 (API key), auto-detected | Claude per-sample USD cap (Claude backend only). See [USAGE.md](./USAGE.md#about---budget-and-the-two-auth-modes) for the auth-aware default rationale. |
+| `--auth <mode>` | `auto` | `auto \| subscription \| api-key`. Override auth detection (and the budget default it picks) |
 | `--json` | off | machine output for editor/PR-bot integration |
 | `--quiet`, `-q` | off | suppress progress output on stderr |
 | `--force` | off | skip the large-diff safety rail on unborn-HEAD repos |
