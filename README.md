@@ -6,10 +6,19 @@
 
 A read-only AI pair programmer. No hands, by design.
 
-Witness reads your diff. It does not write, run, or push. It returns
-structured recommendations — `bug`, `security`, `performance`,
-`refactor`, `architectural`, `convention`, `question` — each cited
-to a specific file and line. You decide what to do with them.
+Witness reads what you wrote and tells you what's wrong with it.
+Two stages ship today:
+
+- **Diff review** — read a git diff, return structured recommendations
+  (`bug`, `security`, `performance`, `refactor`, `architectural`,
+  `convention`, `question`) each cited to a specific file and line.
+- **Spec review** — read a PRD, spec, or ADR markdown file, return
+  findings against six kinds (`missing-section`, `ambiguity`,
+  `untestable-claim`, `scope-creep`, `broken-reference`,
+  `undefined-term`) each cited to a line.
+
+Same harness: N parallel SDK samples, voted, dissent log. Witness does
+not write, run, or push. You decide what to do with the findings.
 
 > **Status: personal experiment, not actively maintained.** The repo
 > is public for inspection and for anyone who wants to fork it — what's
@@ -28,7 +37,7 @@ possible wrapper to:
 
 1. Give it a reliable structured output format.
 2. Vote across multiple samples so low-confidence noise doesn't reach you.
-3. Constrain its tools to the set that cannot do damage (read, glob, grep).
+3. Constrain its tools to the read-only set (Read + Grep, plus Glob for the diff stage).
 4. Log your dissent so we can learn where it's wrong.
 
 Everything else is a temporary ladder that a better model kicks out
