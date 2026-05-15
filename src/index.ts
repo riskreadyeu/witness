@@ -34,6 +34,10 @@ import {
 import type { BackendKind } from "./stages/diff/backend.js";
 import { type AuthOverride, defaultBudgetForAuth, describeAuth, detectAuth } from "./core/auth.js";
 import { review as specReview } from "./stages/spec/spec.js";
+import { review as designReview } from "./stages/design/design.js";
+import { review as promptReview } from "./stages/prompt/prompt.js";
+import { review as evalDesignReview } from "./stages/eval-design/eval-design.js";
+import { review as deployReview } from "./stages/deploy/deploy.js";
 
 type Severity = "critical" | "high" | "medium" | "low";
 
@@ -331,6 +335,20 @@ async function main(): Promise<void> {
   if (argv[0] === "spec") {
     return runSpec(argv.slice(1));
   }
+
+  if (argv[0] === "design") {
+    return runDesign(argv.slice(1));
+  }
+  if (argv[0] === "prompt") {
+    return runPromptStage(argv.slice(1));
+  }
+  if (argv[0] === "eval-design") {
+    return runEvalDesign(argv.slice(1));
+  }
+  if (argv[0] === "deploy") {
+    return runDeploy(argv.slice(1));
+  }
+
 
   const args = parseArgs(argv);
   if (args.help) { printHelp(); return; }
@@ -688,3 +706,406 @@ async function runSpec(argv: string[]): Promise<void> {
   }
 }
 
+
+/**
+ * `witness design <path>` — read-only review of design-stage artifacts.
+ * Same shape as runSpec; only the underlying review function and stage label differ.
+ */
+async function runDesign(argv: string[]): Promise<void> {
+  if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
+    console.log(
+      [
+        "witness design — read-only AI review of design-stage artifacts",
+        "",
+        "usage:",
+        "  witness design <path>           review the markdown file at <path>",
+        "",
+        "options:",
+        "  --samples <n>         number of model samples (default 3)",
+        "  --min-votes <n>       minimum votes to surface a finding (default 2)",
+        "  --budget <usd>        per-sample USD cap (default depends on auth)",
+        "  --max-turns <n>       per-sample tool-use cap (stage-default)",
+        "  --model <id>          override Claude model id",
+      ].join("\n"),
+    );
+    return;
+  }
+
+  const path = argv[0]!;
+  if (path.startsWith("--")) {
+    console.error("witness design: first positional argument must be a file path.");
+    process.exit(2);
+  }
+
+  let samples: number | undefined;
+  let minVotes: number | undefined;
+  let budget: number | undefined;
+  let maxTurns: number | undefined;
+  let model: string | undefined;
+
+  for (let i = 1; i < argv.length; i++) {
+    const a = argv[i]!;
+    switch (a) {
+      case "--samples":   samples  = parsePositiveInt(argv[++i], "--samples"); break;
+      case "--min-votes": minVotes = parsePositiveInt(argv[++i], "--min-votes"); break;
+      case "--budget":    budget   = parsePositiveFloat(argv[++i], "--budget"); break;
+      case "--max-turns": maxTurns = parsePositiveInt(argv[++i], "--max-turns"); break;
+      case "--model":     model    = String(argv[++i] ?? ""); break;
+      default:
+        console.error(`witness design: unknown flag ${a}`);
+        process.exit(2);
+    }
+  }
+
+  const { readFile } = await import("node:fs/promises");
+  const { resolve, dirname } = await import("node:path");
+  const absPath = resolve(process.cwd(), path);
+  let artifact: string;
+  try {
+    artifact = await readFile(absPath, "utf8");
+  } catch (err) {
+    console.error(`witness design: cannot read ${path}: ${(err as Error).message}`);
+    process.exit(1);
+  }
+  const repoRoot = (() => {
+    try { return git(["rev-parse", "--show-toplevel"], dirname(absPath)).trim(); }
+    catch { return dirname(absPath); }
+  })();
+
+  console.error(`witness design: reviewing ${path} with ${samples ?? 3} samples`);
+
+  const result = await designReview({
+    artifact,
+    artifactPath: path,
+    repoRoot,
+    ...(samples  !== undefined ? { samples } : {}),
+    ...(minVotes !== undefined ? { minVotes } : {}),
+    ...(budget   !== undefined ? { maxBudgetUsdPerSample: budget } : {}),
+    ...(maxTurns !== undefined ? { maxTurnsPerSample: maxTurns } : {}),
+    ...(model    !== undefined ? { model } : {}),
+  });
+
+  if (result.findings.length === 0) {
+    console.log("\nNo findings above vote threshold. Clean read.");
+  } else {
+    console.log(`\n${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}:\n`);
+    for (const f of result.findings) {
+      console.log(`  [${f.severity.toUpperCase()}] ${f.kind} @ line ${f.line}  (votes ${f.votes}/${f.totalSamples}, ${f.confidence} conf)`);
+      console.log(`    ${f.title}`);
+      const whyLines = f.why.split("\n").map((l: string) => `      ${l}`).join("\n");
+      console.log(whyLines);
+      console.log("");
+    }
+  }
+
+  const m = result.meta;
+  console.error(
+    `\n${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`,
+  );
+  if (result.raw.parseErrors.length > 0) {
+    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 3) + 2} for more coverage)`);
+  }
+}
+
+
+/**
+ * `witness prompt <path>` — read-only review of prompt-stage artifacts.
+ * Same shape as runSpec; only the underlying review function and stage label differ.
+ */
+async function runPromptStage(argv: string[]): Promise<void> {
+  if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
+    console.log(
+      [
+        "witness prompt — read-only AI review of prompt-stage artifacts",
+        "",
+        "usage:",
+        "  witness prompt <path>           review the markdown file at <path>",
+        "",
+        "options:",
+        "  --samples <n>         number of model samples (default 3)",
+        "  --min-votes <n>       minimum votes to surface a finding (default 2)",
+        "  --budget <usd>        per-sample USD cap (default depends on auth)",
+        "  --max-turns <n>       per-sample tool-use cap (stage-default)",
+        "  --model <id>          override Claude model id",
+      ].join("\n"),
+    );
+    return;
+  }
+
+  const path = argv[0]!;
+  if (path.startsWith("--")) {
+    console.error("witness prompt: first positional argument must be a file path.");
+    process.exit(2);
+  }
+
+  let samples: number | undefined;
+  let minVotes: number | undefined;
+  let budget: number | undefined;
+  let maxTurns: number | undefined;
+  let model: string | undefined;
+
+  for (let i = 1; i < argv.length; i++) {
+    const a = argv[i]!;
+    switch (a) {
+      case "--samples":   samples  = parsePositiveInt(argv[++i], "--samples"); break;
+      case "--min-votes": minVotes = parsePositiveInt(argv[++i], "--min-votes"); break;
+      case "--budget":    budget   = parsePositiveFloat(argv[++i], "--budget"); break;
+      case "--max-turns": maxTurns = parsePositiveInt(argv[++i], "--max-turns"); break;
+      case "--model":     model    = String(argv[++i] ?? ""); break;
+      default:
+        console.error(`witness prompt: unknown flag ${a}`);
+        process.exit(2);
+    }
+  }
+
+  const { readFile } = await import("node:fs/promises");
+  const { resolve, dirname } = await import("node:path");
+  const absPath = resolve(process.cwd(), path);
+  let artifact: string;
+  try {
+    artifact = await readFile(absPath, "utf8");
+  } catch (err) {
+    console.error(`witness prompt: cannot read ${path}: ${(err as Error).message}`);
+    process.exit(1);
+  }
+  const repoRoot = (() => {
+    try { return git(["rev-parse", "--show-toplevel"], dirname(absPath)).trim(); }
+    catch { return dirname(absPath); }
+  })();
+
+  console.error(`witness prompt: reviewing ${path} with ${samples ?? 3} samples`);
+
+  const result = await promptReview({
+    artifact,
+    artifactPath: path,
+    repoRoot,
+    ...(samples  !== undefined ? { samples } : {}),
+    ...(minVotes !== undefined ? { minVotes } : {}),
+    ...(budget   !== undefined ? { maxBudgetUsdPerSample: budget } : {}),
+    ...(maxTurns !== undefined ? { maxTurnsPerSample: maxTurns } : {}),
+    ...(model    !== undefined ? { model } : {}),
+  });
+
+  if (result.findings.length === 0) {
+    console.log("\nNo findings above vote threshold. Clean read.");
+  } else {
+    console.log(`\n${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}:\n`);
+    for (const f of result.findings) {
+      console.log(`  [${f.severity.toUpperCase()}] ${f.kind} @ line ${f.line}  (votes ${f.votes}/${f.totalSamples}, ${f.confidence} conf)`);
+      console.log(`    ${f.title}`);
+      const whyLines = f.why.split("\n").map((l: string) => `      ${l}`).join("\n");
+      console.log(whyLines);
+      console.log("");
+    }
+  }
+
+  const m = result.meta;
+  console.error(
+    `\n${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`,
+  );
+  if (result.raw.parseErrors.length > 0) {
+    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 3) + 2} for more coverage)`);
+  }
+}
+
+
+/**
+ * `witness eval-design <path>` — read-only review of eval-design-stage artifacts.
+ * Same shape as runSpec; only the underlying review function and stage label differ.
+ */
+async function runEvalDesign(argv: string[]): Promise<void> {
+  if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
+    console.log(
+      [
+        "witness eval-design — read-only AI review of eval-design-stage artifacts",
+        "",
+        "usage:",
+        "  witness eval-design <path>           review the markdown file at <path>",
+        "",
+        "options:",
+        "  --samples <n>         number of model samples (default 3)",
+        "  --min-votes <n>       minimum votes to surface a finding (default 2)",
+        "  --budget <usd>        per-sample USD cap (default depends on auth)",
+        "  --max-turns <n>       per-sample tool-use cap (stage-default)",
+        "  --model <id>          override Claude model id",
+      ].join("\n"),
+    );
+    return;
+  }
+
+  const path = argv[0]!;
+  if (path.startsWith("--")) {
+    console.error("witness eval-design: first positional argument must be a file path.");
+    process.exit(2);
+  }
+
+  let samples: number | undefined;
+  let minVotes: number | undefined;
+  let budget: number | undefined;
+  let maxTurns: number | undefined;
+  let model: string | undefined;
+
+  for (let i = 1; i < argv.length; i++) {
+    const a = argv[i]!;
+    switch (a) {
+      case "--samples":   samples  = parsePositiveInt(argv[++i], "--samples"); break;
+      case "--min-votes": minVotes = parsePositiveInt(argv[++i], "--min-votes"); break;
+      case "--budget":    budget   = parsePositiveFloat(argv[++i], "--budget"); break;
+      case "--max-turns": maxTurns = parsePositiveInt(argv[++i], "--max-turns"); break;
+      case "--model":     model    = String(argv[++i] ?? ""); break;
+      default:
+        console.error(`witness eval-design: unknown flag ${a}`);
+        process.exit(2);
+    }
+  }
+
+  const { readFile } = await import("node:fs/promises");
+  const { resolve, dirname } = await import("node:path");
+  const absPath = resolve(process.cwd(), path);
+  let artifact: string;
+  try {
+    artifact = await readFile(absPath, "utf8");
+  } catch (err) {
+    console.error(`witness eval-design: cannot read ${path}: ${(err as Error).message}`);
+    process.exit(1);
+  }
+  const repoRoot = (() => {
+    try { return git(["rev-parse", "--show-toplevel"], dirname(absPath)).trim(); }
+    catch { return dirname(absPath); }
+  })();
+
+  console.error(`witness eval-design: reviewing ${path} with ${samples ?? 3} samples`);
+
+  const result = await evalDesignReview({
+    artifact,
+    artifactPath: path,
+    repoRoot,
+    ...(samples  !== undefined ? { samples } : {}),
+    ...(minVotes !== undefined ? { minVotes } : {}),
+    ...(budget   !== undefined ? { maxBudgetUsdPerSample: budget } : {}),
+    ...(maxTurns !== undefined ? { maxTurnsPerSample: maxTurns } : {}),
+    ...(model    !== undefined ? { model } : {}),
+  });
+
+  if (result.findings.length === 0) {
+    console.log("\nNo findings above vote threshold. Clean read.");
+  } else {
+    console.log(`\n${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}:\n`);
+    for (const f of result.findings) {
+      console.log(`  [${f.severity.toUpperCase()}] ${f.kind} @ line ${f.line}  (votes ${f.votes}/${f.totalSamples}, ${f.confidence} conf)`);
+      console.log(`    ${f.title}`);
+      const whyLines = f.why.split("\n").map((l: string) => `      ${l}`).join("\n");
+      console.log(whyLines);
+      console.log("");
+    }
+  }
+
+  const m = result.meta;
+  console.error(
+    `\n${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`,
+  );
+  if (result.raw.parseErrors.length > 0) {
+    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 3) + 2} for more coverage)`);
+  }
+}
+
+
+/**
+ * `witness deploy <path>` — read-only review of deploy-stage artifacts.
+ * Same shape as runSpec; only the underlying review function and stage label differ.
+ */
+async function runDeploy(argv: string[]): Promise<void> {
+  if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
+    console.log(
+      [
+        "witness deploy — read-only AI review of deploy-stage artifacts",
+        "",
+        "usage:",
+        "  witness deploy <path>           review the markdown file at <path>",
+        "",
+        "options:",
+        "  --samples <n>         number of model samples (default 3)",
+        "  --min-votes <n>       minimum votes to surface a finding (default 2)",
+        "  --budget <usd>        per-sample USD cap (default depends on auth)",
+        "  --max-turns <n>       per-sample tool-use cap (stage-default)",
+        "  --model <id>          override Claude model id",
+      ].join("\n"),
+    );
+    return;
+  }
+
+  const path = argv[0]!;
+  if (path.startsWith("--")) {
+    console.error("witness deploy: first positional argument must be a file path.");
+    process.exit(2);
+  }
+
+  let samples: number | undefined;
+  let minVotes: number | undefined;
+  let budget: number | undefined;
+  let maxTurns: number | undefined;
+  let model: string | undefined;
+
+  for (let i = 1; i < argv.length; i++) {
+    const a = argv[i]!;
+    switch (a) {
+      case "--samples":   samples  = parsePositiveInt(argv[++i], "--samples"); break;
+      case "--min-votes": minVotes = parsePositiveInt(argv[++i], "--min-votes"); break;
+      case "--budget":    budget   = parsePositiveFloat(argv[++i], "--budget"); break;
+      case "--max-turns": maxTurns = parsePositiveInt(argv[++i], "--max-turns"); break;
+      case "--model":     model    = String(argv[++i] ?? ""); break;
+      default:
+        console.error(`witness deploy: unknown flag ${a}`);
+        process.exit(2);
+    }
+  }
+
+  const { readFile } = await import("node:fs/promises");
+  const { resolve, dirname } = await import("node:path");
+  const absPath = resolve(process.cwd(), path);
+  let artifact: string;
+  try {
+    artifact = await readFile(absPath, "utf8");
+  } catch (err) {
+    console.error(`witness deploy: cannot read ${path}: ${(err as Error).message}`);
+    process.exit(1);
+  }
+  const repoRoot = (() => {
+    try { return git(["rev-parse", "--show-toplevel"], dirname(absPath)).trim(); }
+    catch { return dirname(absPath); }
+  })();
+
+  console.error(`witness deploy: reviewing ${path} with ${samples ?? 3} samples`);
+
+  const result = await deployReview({
+    artifact,
+    artifactPath: path,
+    repoRoot,
+    ...(samples  !== undefined ? { samples } : {}),
+    ...(minVotes !== undefined ? { minVotes } : {}),
+    ...(budget   !== undefined ? { maxBudgetUsdPerSample: budget } : {}),
+    ...(maxTurns !== undefined ? { maxTurnsPerSample: maxTurns } : {}),
+    ...(model    !== undefined ? { model } : {}),
+  });
+
+  if (result.findings.length === 0) {
+    console.log("\nNo findings above vote threshold. Clean read.");
+  } else {
+    console.log(`\n${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}:\n`);
+    for (const f of result.findings) {
+      console.log(`  [${f.severity.toUpperCase()}] ${f.kind} @ line ${f.line}  (votes ${f.votes}/${f.totalSamples}, ${f.confidence} conf)`);
+      console.log(`    ${f.title}`);
+      const whyLines = f.why.split("\n").map((l: string) => `      ${l}`).join("\n");
+      console.log(whyLines);
+      console.log("");
+    }
+  }
+
+  const m = result.meta;
+  console.error(
+    `\n${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`,
+  );
+  if (result.raw.parseErrors.length > 0) {
+    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 3) + 2} for more coverage)`);
+  }
+}
