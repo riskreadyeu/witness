@@ -3,9 +3,9 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ReviewerBackend, ReviewerBackendOptions, BackendSampleResult } from "./backend.js";
-import { reviewResponseJsonSchema } from "./json-schema.js";
+import { reviewResponseJsonSchema } from "../../core/json-schema.js";
 import { CODEX_SYSTEM_PROMPT } from "./prompt.js";
-import { ReviewResponseSchema } from "./schema.js";
+import { ReviewResponseSchema } from "../../core/schema.js";
 
 export interface CodexExecRun {
   args: string[];

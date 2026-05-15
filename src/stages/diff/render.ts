@@ -6,7 +6,7 @@
  * the no-color.org convention.
  */
 
-import type { VotedRecommendation } from "./schema.js";
+import type { VotedRecommendation } from "../../core/schema.js";
 import type { ParseError } from "./witness.js";
 import type { BackendKind } from "./backend.js";
 

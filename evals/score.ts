@@ -18,7 +18,7 @@
  *   - pass      = recall == 1.0 AND (allowExtras OR precision == 1.0)
  */
 
-import type { VotedRecommendation } from "../src/schema.js";
+import type { VotedRecommendation } from "../src/core/schema.js";
 
 export interface Expected {
   key: string;

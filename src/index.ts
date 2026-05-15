@@ -21,9 +21,9 @@
 
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
-import { readDiffInput } from "./diff.js";
-import { review } from "./witness.js";
-import { renderFindings, renderTotalFailure } from "./render.js";
+import { readDiffInput } from "./stages/diff/diff.js";
+import { review } from "./stages/diff/witness.js";
+import { renderFindings, renderTotalFailure } from "./stages/diff/render.js";
 import {
   type DissentAction,
   loadLastReview,
@@ -31,8 +31,8 @@ import {
   persistLastReview,
   resolveFindingByIdPrefix,
 } from "./dissent.js";
-import type { BackendKind } from "./backend.js";
-import { type AuthOverride, defaultBudgetForAuth, describeAuth, detectAuth } from "./auth.js";
+import type { BackendKind } from "./stages/diff/backend.js";
+import { type AuthOverride, defaultBudgetForAuth, describeAuth, detectAuth } from "./core/auth.js";
 
 type Severity = "critical" | "high" | "medium" | "low";
 

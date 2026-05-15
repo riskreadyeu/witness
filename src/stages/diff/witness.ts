@@ -26,13 +26,13 @@ import {
   ReviewResponseSchema,
   type Recommendation,
   type VotedRecommendation,
-} from "./schema.js";
-import { reviewResponseJsonSchema } from "./json-schema.js";
-import { mergeSamples } from "./voting.js";
+} from "../../core/schema.js";
+import { reviewResponseJsonSchema } from "../../core/json-schema.js";
+import { mergeSamples } from "../../core/voting.js";
 import { buildContext, renderUserMessage } from "./diff.js";
 import type { BackendKind, ReviewerBackend } from "./backend.js";
 import { CodexCliBackend } from "./codex-backend.js";
-import { type AuthMode, type AuthOverride, defaultBudgetForAuth, detectAuth } from "./auth.js";
+import { type AuthMode, type AuthOverride, defaultBudgetForAuth, detectAuth } from "../../core/auth.js";
 
 export interface WitnessOptions {
   diff: string;

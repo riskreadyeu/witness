@@ -26,10 +26,10 @@
 import { readdir, readFile, stat, writeFile, mkdir } from "node:fs/promises";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { review } from "../src/witness.js";
+import { review } from "../src/stages/diff/witness.js";
 import { scoreFixture, aggregate, type FixtureExpected, type Score } from "./score.js";
-import type { VotedRecommendation } from "../src/schema.js";
-import type { BackendKind } from "../src/backend.js";
+import type { VotedRecommendation } from "../src/core/schema.js";
+import type { BackendKind } from "../src/stages/diff/backend.js";
 
 interface RunnerArgs {
   pool: "public" | "private" | "all";

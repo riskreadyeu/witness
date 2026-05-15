@@ -1,4 +1,4 @@
-import type { Recommendation } from "./schema.js";
+import type { Recommendation } from "../../core/schema.js";
 
 export type BackendKind = "claude" | "codex";
 
