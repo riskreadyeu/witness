@@ -167,7 +167,7 @@ options:
   --range <ref>         review diff between <ref> and working tree
   --diff <file>         review a pre-built .patch file (must live inside the
                         repo). Use \`--diff -\` to read a patch from stdin.
-  --samples <n>         number of model samples (default 3)
+  --samples <n>         number of model samples (default 2)
   --min-votes <n>       minimum votes to surface a finding (default 2)
   --min-severity <s>    hide findings below this severity (critical|high|medium|low)
   --max-turns <n>       max tool-use turns per sample (default 40)
@@ -381,7 +381,7 @@ async function main(): Promise<void> {
   }
 
   if (!args.quiet) {
-    const samples = args.samples ?? 3;
+    const samples = args.samples ?? 2;
     const backend = args.backend ?? "claude";
     let budgetText = "";
     if (backend === "claude") {
@@ -613,7 +613,7 @@ async function runSpec(argv: string[]): Promise<void> {
         "  witness spec <path>                review the markdown file at <path>",
         "",
         "options:",
-        "  --samples <n>         number of model samples (default 3)",
+        "  --samples <n>         number of model samples (default 2)",
         "  --min-votes <n>       minimum votes to surface a finding (default 2)",
         "  --budget <usd>        per-sample USD cap (default depends on auth)",
         "  --max-turns <n>       per-sample tool-use cap (default 30)",
@@ -667,7 +667,7 @@ async function runSpec(argv: string[]): Promise<void> {
   })();
 
   if (!process.stdout.isTTY || true) {
-    const tag = samples ?? 3;
+    const tag = samples ?? 2;
     console.error(
       `witness spec: reviewing ${path} with ${tag} samples (read-only Read+Grep)`,
     );
@@ -702,7 +702,7 @@ async function runSpec(argv: string[]): Promise<void> {
     `\n${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`,
   );
   if (result.raw.parseErrors.length > 0) {
-    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 3) + 2} for more coverage)`);
+    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 2) + 2} for more coverage)`);
   }
 }
 
@@ -721,7 +721,7 @@ async function runDesign(argv: string[]): Promise<void> {
         "  witness design <path>           review the markdown file at <path>",
         "",
         "options:",
-        "  --samples <n>         number of model samples (default 3)",
+        "  --samples <n>         number of model samples (default 2)",
         "  --min-votes <n>       minimum votes to surface a finding (default 2)",
         "  --budget <usd>        per-sample USD cap (default depends on auth)",
         "  --max-turns <n>       per-sample tool-use cap (stage-default)",
@@ -772,7 +772,7 @@ async function runDesign(argv: string[]): Promise<void> {
     catch { return dirname(absPath); }
   })();
 
-  console.error(`witness design: reviewing ${path} with ${samples ?? 3} samples`);
+  console.error(`witness design: reviewing ${path} with ${samples ?? 2} samples`);
 
   const result = await designReview({
     artifact,
@@ -803,7 +803,7 @@ async function runDesign(argv: string[]): Promise<void> {
     `\n${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`,
   );
   if (result.raw.parseErrors.length > 0) {
-    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 3) + 2} for more coverage)`);
+    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 2) + 2} for more coverage)`);
   }
 }
 
@@ -822,7 +822,7 @@ async function runPromptStage(argv: string[]): Promise<void> {
         "  witness prompt <path>           review the markdown file at <path>",
         "",
         "options:",
-        "  --samples <n>         number of model samples (default 3)",
+        "  --samples <n>         number of model samples (default 2)",
         "  --min-votes <n>       minimum votes to surface a finding (default 2)",
         "  --budget <usd>        per-sample USD cap (default depends on auth)",
         "  --max-turns <n>       per-sample tool-use cap (stage-default)",
@@ -873,7 +873,7 @@ async function runPromptStage(argv: string[]): Promise<void> {
     catch { return dirname(absPath); }
   })();
 
-  console.error(`witness prompt: reviewing ${path} with ${samples ?? 3} samples`);
+  console.error(`witness prompt: reviewing ${path} with ${samples ?? 2} samples`);
 
   const result = await promptReview({
     artifact,
@@ -904,7 +904,7 @@ async function runPromptStage(argv: string[]): Promise<void> {
     `\n${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`,
   );
   if (result.raw.parseErrors.length > 0) {
-    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 3) + 2} for more coverage)`);
+    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 2) + 2} for more coverage)`);
   }
 }
 
@@ -923,7 +923,7 @@ async function runEvalDesign(argv: string[]): Promise<void> {
         "  witness eval-design <path>           review the markdown file at <path>",
         "",
         "options:",
-        "  --samples <n>         number of model samples (default 3)",
+        "  --samples <n>         number of model samples (default 2)",
         "  --min-votes <n>       minimum votes to surface a finding (default 2)",
         "  --budget <usd>        per-sample USD cap (default depends on auth)",
         "  --max-turns <n>       per-sample tool-use cap (stage-default)",
@@ -974,7 +974,7 @@ async function runEvalDesign(argv: string[]): Promise<void> {
     catch { return dirname(absPath); }
   })();
 
-  console.error(`witness eval-design: reviewing ${path} with ${samples ?? 3} samples`);
+  console.error(`witness eval-design: reviewing ${path} with ${samples ?? 2} samples`);
 
   const result = await evalDesignReview({
     artifact,
@@ -1005,7 +1005,7 @@ async function runEvalDesign(argv: string[]): Promise<void> {
     `\n${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`,
   );
   if (result.raw.parseErrors.length > 0) {
-    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 3) + 2} for more coverage)`);
+    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 2) + 2} for more coverage)`);
   }
 }
 
@@ -1024,7 +1024,7 @@ async function runDeploy(argv: string[]): Promise<void> {
         "  witness deploy <path>           review the markdown file at <path>",
         "",
         "options:",
-        "  --samples <n>         number of model samples (default 3)",
+        "  --samples <n>         number of model samples (default 2)",
         "  --min-votes <n>       minimum votes to surface a finding (default 2)",
         "  --budget <usd>        per-sample USD cap (default depends on auth)",
         "  --max-turns <n>       per-sample tool-use cap (stage-default)",
@@ -1075,7 +1075,7 @@ async function runDeploy(argv: string[]): Promise<void> {
     catch { return dirname(absPath); }
   })();
 
-  console.error(`witness deploy: reviewing ${path} with ${samples ?? 3} samples`);
+  console.error(`witness deploy: reviewing ${path} with ${samples ?? 2} samples`);
 
   const result = await deployReview({
     artifact,
@@ -1106,6 +1106,6 @@ async function runDeploy(argv: string[]): Promise<void> {
     `\n${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`,
   );
   if (result.raw.parseErrors.length > 0) {
-    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 3) + 2} for more coverage)`);
+    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 2) + 2} for more coverage)`);
   }
 }

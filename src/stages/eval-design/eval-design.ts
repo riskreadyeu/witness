@@ -68,9 +68,9 @@ export interface ParseError {
 
 const DEFAULTS = {
   model: "claude-opus-4-7",
-  samples: 3,
+  samples: 2,
   minVotes: 2,
-  maxTurnsPerSample: 45,
+  maxTurnsPerSample: 40,
 };
 
 export async function review(opts: EvalDesignReviewOptions): Promise<EvalDesignReviewResult> {

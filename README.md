@@ -221,6 +221,20 @@ shape (streaming sampler, not voting on a static artifact).
 | 6. Deploy      | witness deploy <md>      | privilege-escalation, secret-leak, network-exposure, missing-healthcheck, dependency-pin-drift, resource-blowup |
 | 7. Trace       | (deferred)               | (streaming + sampling — separate architecture in Sprint 3) |
 
+### Cost notes
+
+The SDK always bills as API tier () even when you have a Pro/Max subscription configured at . The OAuth bearer is recognized by  (the CLI) for chat but not by the SDK's underlying API call. Until that gap closes, treat every witness invocation as real-money API spend.
+
+Default tuning (v0.3+) keeps quality and cuts cost:
+
+  - **samples 3 → 2** — 33% fewer model calls per review.
+  - **per-stage max-turns** — capped at observed-typical + headroom (spec 30, design 30, prompt 20, eval-design 40, deploy 40, diff 40).
+  - **** — ~15× cheaper than the Opus default, but expect lower structured-output reliability and shallower findings on long-context artifacts. Good for quick drafts; not for final review.
+
+Measured: spec review of an 812-line PRD ran .00 with v0.2 defaults (3 samples, Opus). Same PRD on v0.3 defaults (2 samples, Opus, max-turns 30) ran .70 — ~76% reduction with one voted high-severity finding surfaced.
+
+Next lever (not yet wired): explicit Anthropic prompt caching of the system prompt + numbered artifact block. The SDK does not currently expose  on ; auto-caching is bypassed by . Wiring this would require either an SDK update or bypassing the SDK with  directly + a hand-rolled tool-use loop.
+
 The taxonomy from the original spec stage (still the first stage):
 
   - missing-section  — a load-bearing section that is not in the spec
@@ -233,6 +247,7 @@ The taxonomy from the original spec stage (still the first stage):
 ```bash
 witness spec path/to/PRD.md
 witness spec path/to/PRD.md --samples 5 --min-votes 3
+witness spec path/to/PRD.md --model claude-haiku-4-5-20251001  # cheap, lower quality
 witness spec --help
 ```
 

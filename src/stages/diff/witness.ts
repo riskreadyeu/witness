@@ -97,7 +97,7 @@ export interface ParseError {
 
 const DEFAULTS = {
   model: "claude-opus-4-7",
-  samples: 5,
+  samples: 2,
   minVotes: 2,
   maxTurnsPerSample: 40,
 };
