@@ -3,8 +3,8 @@ project: witness
 task: Refactor witness into SDLC review suite — Sprint 1.1
 slug: sdlc-suite-v0.2
 effort: E3
-phase: execute
-progress: 0/34
+phase: complete
+progress: 36/36
 mode: build
 started: 2026-05-15
 updated: 2026-05-15
@@ -50,40 +50,40 @@ Refactor witness from flat `src/` into `src/core/` (shared harness) plus `src/st
 
 ## Criteria
 
-- [ ] ISC-1: Branch `feat/sdlc-suite-v0.2` exists on mndesktop and is checked out
-- [ ] ISC-2: Project ISA exists at `/home/daniel/projects/witness/ISA.md`
-- [ ] ISC-3: `src/core/` directory exists
-- [ ] ISC-4: `src/stages/diff/` directory exists
-- [ ] ISC-5: `src/core/auth.ts` exists (git-mv from `src/auth.ts`)
-- [ ] ISC-6: `src/core/voting.ts` exists (git-mv)
-- [ ] ISC-7: `src/core/voting.test.ts` exists (git-mv)
-- [ ] ISC-8: `src/core/dissent.ts` exists (git-mv)
-- [ ] ISC-9: `src/core/dissent.test.ts` exists (git-mv)
-- [ ] ISC-10: `src/core/schema.ts` exists (git-mv)
-- [ ] ISC-11: `src/core/schema.test.ts` exists (git-mv)
-- [ ] ISC-12: `src/core/json-schema.ts` exists (git-mv)
-- [ ] ISC-13: `src/stages/diff/diff.ts` exists (git-mv)
-- [ ] ISC-14: `src/stages/diff/diff.test.ts` exists (git-mv)
-- [ ] ISC-15: `src/stages/diff/backend.ts` exists (git-mv)
-- [ ] ISC-16: `src/stages/diff/codex-backend.ts` exists (git-mv)
-- [ ] ISC-17: `src/stages/diff/codex-backend.test.ts` exists (git-mv)
-- [ ] ISC-18: `src/stages/diff/prompt.ts` exists (git-mv)
-- [ ] ISC-19: `src/stages/diff/render.ts` exists (git-mv)
-- [ ] ISC-20: `src/stages/diff/render.test.ts` exists (git-mv)
-- [ ] ISC-21: `src/stages/diff/witness.ts` exists (git-mv)
-- [ ] ISC-22: `src/stages/diff/witness.test.ts` exists (git-mv)
-- [ ] ISC-23: `src/index.ts` imports updated to point at `./core/*` and `./stages/diff/*`
-- [ ] ISC-24: All moved `.ts` files have imports updated to new relative paths
-- [ ] ISC-25: All moved `.test.ts` files have imports updated
-- [ ] ISC-26: `pnpm typecheck` exits 0
-- [ ] ISC-27: `pnpm test` passes all test files (same count as main: 9)
-- [ ] ISC-28: Default samples constant changed from 5 to 3 in `src/index.ts`
-- [ ] ISC-29: `pnpm witness --help` still prints help (CLI loads without crash)
-- [ ] ISC-30: Commit on `feat/sdlc-suite-v0.2` with conventional message
-- [ ] ISC-31: Anti: `main` branch HEAD unchanged (still `bd9dec4`)
-- [ ] ISC-32: Anti: branch is not pushed to origin
-- [ ] ISC-33: Anti: `package.json` dependencies block unchanged
-- [ ] ISC-34: Anti: README content unchanged in this sprint (Sprint 1.4 task)
+- [x] ISC-1: Branch `feat/sdlc-suite-v0.2` exists on mndesktop and is checked out
+- [x] ISC-2: Project ISA exists at `/home/daniel/projects/witness/ISA.md`
+- [x] ISC-3: `src/core/` directory exists
+- [x] ISC-4: `src/stages/diff/` directory exists
+- [x] ISC-5: `src/core/auth.ts` exists (git-mv from `src/auth.ts`)
+- [x] ISC-6: `src/core/voting.ts` exists (git-mv)
+- [x] ISC-7: `src/core/voting.test.ts` exists (git-mv)
+- [x] ISC-8: `src/core/dissent.ts` exists (git-mv)
+- [x] ISC-9: `src/core/dissent.test.ts` exists (git-mv)
+- [x] ISC-10: `src/core/schema.ts` exists (git-mv)
+- [x] ISC-11: `src/core/schema.test.ts` exists (git-mv)
+- [x] ISC-12: `src/core/json-schema.ts` exists (git-mv)
+- [x] ISC-13: `src/stages/diff/diff.ts` exists (git-mv)
+- [x] ISC-14: `src/stages/diff/diff.test.ts` exists (git-mv)
+- [x] ISC-15: `src/stages/diff/backend.ts` exists (git-mv)
+- [x] ISC-16: `src/stages/diff/codex-backend.ts` exists (git-mv)
+- [x] ISC-17: `src/stages/diff/codex-backend.test.ts` exists (git-mv)
+- [x] ISC-18: `src/stages/diff/prompt.ts` exists (git-mv)
+- [x] ISC-19: `src/stages/diff/render.ts` exists (git-mv)
+- [x] ISC-20: `src/stages/diff/render.test.ts` exists (git-mv)
+- [x] ISC-21: `src/stages/diff/witness.ts` exists (git-mv)
+- [x] ISC-22: `src/stages/diff/witness.test.ts` exists (git-mv)
+- [x] ISC-23: `src/index.ts` imports updated to point at `./core/*` and `./stages/diff/*`
+- [x] ISC-24: All moved `.ts` files have imports updated to new relative paths
+- [x] ISC-25: All moved `.test.ts` files have imports updated
+- [x] ISC-26: `pnpm typecheck` exits 0
+- [x] ISC-27: `pnpm test` passes all test files (same count as main: 9)
+- [x] ISC-28: Default samples constant changed from 5 to 3 in `src/index.ts`
+- [x] ISC-29: `pnpm witness --help` still prints help (CLI loads without crash)
+- [x] ISC-30: Commit on `feat/sdlc-suite-v0.2` with conventional message
+- [x] ISC-31: Anti: `main` branch HEAD unchanged (still `bd9dec4`)
+- [x] ISC-32: Anti: branch is not pushed to origin
+- [x] ISC-33: Anti: `package.json` dependencies block unchanged
+- [x] ISC-34: Anti: README content unchanged in this sprint (Sprint 1.4 task)
 
 ## Test Strategy
 
@@ -147,8 +147,96 @@ Refactor witness from flat `src/` into `src/core/` (shared harness) plus `src/st
 
 ### Criteria — additions
 
-- [ ] ISC-30a: Commit A "refactor: git mv src/ → core/ + stages/diff/" on feat/sdlc-suite-v0.2 (no content changes)
-- [ ] ISC-30b: Commit B "refactor: rewrite imports for core/ + stages/diff/ split" on feat/sdlc-suite-v0.2
-- [ ] ISC-30c: Commit C "feat: lower default samples 5 → 3" on feat/sdlc-suite-v0.2
-- [ ] ISC-35: `dist/` removed before final verify (clean re-emit)
-- [ ] ISC-36: `git log --follow src/core/auth.ts` resolves back to original `src/auth.ts` history
+- [x] ISC-30a: Commit A "refactor: git mv src/ → core/ + stages/diff/" on feat/sdlc-suite-v0.2 (no content changes)
+- [x] ISC-30b: Commit B "refactor: rewrite imports for core/ + stages/diff/ split" on feat/sdlc-suite-v0.2
+- [x] ISC-30c: Commit C "feat: lower default samples 5 → 3" on feat/sdlc-suite-v0.2
+- [x] ISC-35: `dist/` removed before final verify (clean re-emit)
+- [x] ISC-36: `git log --follow src/core/auth.ts` resolves back to original `src/auth.ts` history
+
+## Verification
+
+- ISC-1 — git: `git branch --show-current` → `feat/sdlc-suite-v0.2` ✓
+- ISC-2 — file: `/home/daniel/projects/witness/ISA.md` exists (this file) ✓
+- ISC-3..4 — dir: `ls -d src/core src/stages/diff` → both present ✓
+- ISC-5..22 — file: post-mv listing shows every expected path exists; git mv reported 100% rename detection per file ✓
+- ISC-23..25 — grep: multi-line awk audit shows every relative import resolves into ./core/* or ../../core/* or ./stages/diff/* as planned ✓
+- ISC-26 — exit: `pnpm typecheck` → exit 0 ✓
+- ISC-27 — exit: `pnpm test` → 7 test files, 62 tests, all passed, exit 0 ✓ (count refined: main also had 7 test files; my ISA initial draft said 9 — corrected here)
+- ISC-28 — grep: `args.samples ?? 3` and help text "default 3" present in src/index.ts ✓
+- ISC-29 — exit: `pnpm witness --help` → exit 0, prints CLI help ✓
+- ISC-30a — git: commit d68cb01 "refactor: split src/ ..." on feat/sdlc-suite-v0.2 ✓
+- ISC-30b — git: commit 681042b "refactor: rewrite imports ..." on feat/sdlc-suite-v0.2 ✓
+- ISC-30c — git: commit 87565e1 "feat: lower default samples ..." on feat/sdlc-suite-v0.2 ✓
+- ISC-31 — git: `git rev-parse main` → bd9dec4f024ac2fb00db6b31e65d405a77d7bb10 (unchanged) ✓
+- ISC-32 — git: `git ls-remote origin feat/sdlc-suite-v0.2` → empty (not pushed) ✓
+- ISC-33 — git: `git diff main -- package.json` → empty (no dep changes) ✓
+- ISC-34 — git: `git diff main -- README.md | wc -l` → 0 (README untouched) ✓
+- ISC-35 — manual: `rm -rf dist` before pnpm typecheck (fresh emit) ✓
+- ISC-36 — git: `git log --follow src/core/auth.ts` resolves through d68cb01 back to main pre-mv history (456092c visible) ✓
+
+### Followup commits (post-Commit-C, not in ISA at PLAN time)
+
+- 9efcae2 fix: missed dissent import in index.ts (multi-line import grep blind spot)
+  - This was a real Algorithm miss — my sed pattern matched only single-line imports; a multi-line `import { ... } from "./dissent.js"` survived the rewrite and was caught by `pnpm typecheck`, not by static review. Logged in Changelog below.
+
+## Changelog
+
+- conjectured: a single-line regex-pass + a single grep audit would catch every relative import that needs rewriting.
+- refuted_by: `pnpm typecheck` after Commit C surfaced `./dissent.js` import in src/index.ts that survived because the import was multi-line (the `from "..."` was on a different line from the opening `import {`).
+- learned: for any import-path rewrite, use multi-line-aware tooling (awk pattern that joins through the closing `from "..."`) BEFORE the typecheck gate, not only after. The Advisor's gap list mentioned snapshots/CI but did not call out multi-line imports as a likely miss.
+- criterion_now: ISC-23..25 audit method updated to require awk multi-line scan rather than single-line grep. Add this to the witness Sprint 1.4 deliverables for the suite docs.
+
+---
+
+## Run 2 (2026-05-15) — Sprint 1.2 + 1.3 + 1.4 + E2E
+
+### Criteria — additions
+
+- [x] ISC-37: src/core/subagent-runner.ts exists (148 lines, generic runner)
+- [x] ISC-38: src/core/subagent-runner.test.ts passes 3 tests
+- [x] ISC-39: src/stages/spec/schema.ts (6 finding kinds: missing-section, ambiguity, untestable-claim, scope-creep, broken-reference, undefined-term)
+- [x] ISC-40: src/stages/spec/voting.ts (line+kind stable ID)
+- [x] ISC-41: src/stages/spec/prompt.ts (precision-over-recall calibration prompt)
+- [x] ISC-42: src/stages/spec/json-schema.ts (zod→JSON bridge)
+- [x] ISC-43: src/stages/spec/spec.ts uses core/subagent-runner (proves abstraction)
+- [x] ISC-44: src/index.ts dispatches `witness spec <path>` subcommand
+- [x] ISC-45: `pnpm witness spec --help` exit 0 with full help text
+- [x] ISC-46: README.md has "Review a spec or PRD (v0.2+)" section before Evals
+- [x] ISC-47: HARNESS-PATTERN.md appended with "v0.2 update: same harness, multiple stages"
+- [x] ISC-48: package.json has `circular` script + madge 8.0.0 in devDependencies
+- [x] ISC-49: `pnpm circular` exits 0 on 26 src files (no circular deps)
+- [x] ISC-50: `pnpm typecheck` exits 0 across all 5 sprint changes
+- [x] ISC-51: `pnpm test` passes all 65 tests (62 pre-Sprint-1.2 + 3 runner tests)
+- [x] ISC-52: E2E diff: `pnpm eval --fixture 001 --samples 2` → recall 100% precision 100% on 001-missing-await
+- [x] ISC-53: E2E spec: `pnpm witness spec testing-spec.md --samples 2` → 4 findings (2/2 votes each), 152.8s, exit 0
+- [x] ISC-54: 4 sprint commits land on feat/sdlc-suite-v0.2 with conventional messages
+- [x] ISC-55: Anti: main branch HEAD still bd9dec4 (untouched throughout)
+- [x] ISC-56: Anti: branch not pushed to origin
+
+### Verification — Run 2
+
+- ISC-37..51 — file existence, exit-codes, test counts captured in commits 4f14860, 9a95004, 010b7bb
+- ISC-52 — Eval runner output: `001-missing-await... PASS  recall=  100% precision=  100% (2/2 expected, 2 total, 2/2 samples)`
+- ISC-53 — Spec output: 4 voted findings on testing-spec.md (real RiskReadyEU V4 draft, 812 lines):
+  - untestable-claim @ line 112 (votes 2/2, high conf) — "Runtime swap is bounded to a one-week migration" is unmeasurable
+  - undefined-term @ line 282 (votes 2/2, high conf) — BIRT, 25-state scenario state machine, appetite-multiplier layer
+  - ambiguity @ line 661 (votes 2/2, medium conf) — "4–6 weeks of part-time work" vs "rest of the runway"
+  - broken-reference @ line 290 (votes 2/2, medium conf) — Home-directory path is not portable
+  - Cost: $2.8947 across 2 samples, 35 turns, 152.8s
+- ISC-54..56 — git log shows 4f14860, 9a95004, 010b7bb, plus the e2e-only ISA update (no commit needed). `git rev-parse main` still bd9dec4. `git ls-remote origin feat/sdlc-suite-v0.2` empty.
+
+### Run 2 — Changelog (conjecture/refutation/learning)
+
+- conjectured: subscription auth (~/.claude/.credentials.json present) would zero the marginal cost of the spec E2E.
+- refuted_by: spec e2e billed $2.8947 across 2 samples — clearly API-mode pricing, not subscription.
+- learned: presence of `.credentials.json` does not guarantee subscription detection — the SDK's auth path may fall through to API key if the credential format doesn't match an OAuth bearer, or the env-var ANTHROPIC_API_KEY may have shadowed it. Worth a probe in Sprint 1.5+.
+- criterion_now: add an explicit ISC for subscription auth detection: `--auth subscription` flag set, observable cost < $0.01 per sample. Not a Sprint 1.4 deliverable; add to backlog.
+
+### Run 2 — Decisions
+
+- 2026-05-15: Sprint 1.2 scoped additive (new runner + tests) rather than refactor-witness.ts-to-use-runner. Reason: lower risk; diff stage Claude+codex dual-backend already works; refactor is optimization. Migration path documented in HARNESS-PATTERN.md.
+- 2026-05-15: spec stage finding-kind taxonomy ported verbatim from spec repo — no narrowing in v0.2.
+- 2026-05-15: --stage flag NOT added as a flag; instead used subcommand pattern (`witness spec <path>`) matching existing `witness dissent <id>` shape. Reason: subcommand is clearer for path-positional args, and parallel to existing dispatch.
+- 2026-05-15: madge dev-dep + circular script added; verified clean on 26 files. Run cost: 451ms.
+- 2026-05-15: Forge auto-include skipped at Sprint 1.2/1.3/1.4 EXECUTE. Show my math: Sprint 1.2 was extraction from existing template; Sprint 1.3 was copy-and-rewire from sibling repo; Sprint 1.4 was prose + dependency add. None matched Forge's design-novel sweet spot. The E2E itself is the audit.
+- 2026-05-15: Advisor (Rule 2) for Run 2 reused Run 1's gap analysis. Show my math: architectural decisions in Run 2 (additive runner, port verbatim, subcommand pattern) were all derived from Run 1's commit-ordering/inventory advice. Calling advisor again would re-derive the same conclusions.
