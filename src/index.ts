@@ -33,6 +33,7 @@ import {
 } from "./core/dissent.js";
 import type { BackendKind } from "./stages/diff/backend.js";
 import { type AuthOverride, defaultBudgetForAuth, describeAuth, detectAuth } from "./core/auth.js";
+import { review as specReview } from "./stages/spec/spec.js";
 
 type Severity = "critical" | "high" | "medium" | "low";
 
@@ -327,6 +328,10 @@ async function main(): Promise<void> {
     return runDissent(argv.slice(1));
   }
 
+  if (argv[0] === "spec") {
+    return runSpec(argv.slice(1));
+  }
+
   const args = parseArgs(argv);
   if (args.help) { printHelp(); return; }
 
@@ -571,3 +576,115 @@ main().catch((e) => {
   console.error(explainError(e));
   process.exit(1);
 });
+
+/**
+ * Spec subcommand: `witness spec <path> [--samples N] [--min-votes N] [--budget USD]`
+ *
+ * Read-only review of a markdown PRD / spec / ADR using the same harness
+ * as the diff stage (N parallel SDK samples on Read+Grep tools, voted).
+ * Stage-specific finding kinds: missing-section, ambiguity, untestable-claim,
+ * scope-creep, broken-reference, undefined-term.
+ */
+async function runSpec(argv: string[]): Promise<void> {
+  if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
+    console.log(
+      [
+        "witness spec — read-only AI review of PRDs, specs, and ADRs",
+        "",
+        "usage:",
+        "  witness spec <path>                review the markdown file at <path>",
+        "",
+        "options:",
+        "  --samples <n>         number of model samples (default 3)",
+        "  --min-votes <n>       minimum votes to surface a finding (default 2)",
+        "  --budget <usd>        per-sample USD cap (default depends on auth)",
+        "  --max-turns <n>       per-sample tool-use cap (default 30)",
+        "  --model <id>          override Claude model id",
+        "",
+        "  Tools the agent is allowed: Read, Grep (rooted at the repo of the spec).",
+      ].join("\n"),
+    );
+    return;
+  }
+
+  const path = argv[0]!;
+  if (path.startsWith("--")) {
+    console.error("witness spec: first positional argument must be a file path.");
+    process.exit(2);
+  }
+
+  let samples: number | undefined;
+  let minVotes: number | undefined;
+  let budget: number | undefined;
+  let maxTurns: number | undefined;
+  let model: string | undefined;
+
+  for (let i = 1; i < argv.length; i++) {
+    const a = argv[i]!;
+    switch (a) {
+      case "--samples":   samples  = parsePositiveInt(argv[++i], "--samples"); break;
+      case "--min-votes": minVotes = parsePositiveInt(argv[++i], "--min-votes"); break;
+      case "--budget":    budget   = parsePositiveFloat(argv[++i], "--budget"); break;
+      case "--max-turns": maxTurns = parsePositiveInt(argv[++i], "--max-turns"); break;
+      case "--model":     model    = String(argv[++i] ?? ""); break;
+      default:
+        console.error(`witness spec: unknown flag ${a}`);
+        process.exit(2);
+    }
+  }
+
+  const { readFile } = await import("node:fs/promises");
+  const { resolve, dirname } = await import("node:path");
+  const absPath = resolve(process.cwd(), path);
+  let spec: string;
+  try {
+    spec = await readFile(absPath, "utf8");
+  } catch (err) {
+    console.error(`witness spec: cannot read ${path}: ${(err as Error).message}`);
+    process.exit(1);
+  }
+  const repoRoot = (() => {
+    try { return git(["rev-parse", "--show-toplevel"], dirname(absPath)).trim(); }
+    catch { return dirname(absPath); }
+  })();
+
+  if (!process.stdout.isTTY || true) {
+    const tag = samples ?? 3;
+    console.error(
+      `witness spec: reviewing ${path} with ${tag} samples (read-only Read+Grep)`,
+    );
+  }
+
+  const result = await specReview({
+    spec,
+    specPath: path,
+    repoRoot,
+    ...(samples  !== undefined ? { samples } : {}),
+    ...(minVotes !== undefined ? { minVotes } : {}),
+    ...(budget   !== undefined ? { maxBudgetUsdPerSample: budget } : {}),
+    ...(maxTurns !== undefined ? { maxTurnsPerSample: maxTurns } : {}),
+    ...(model    !== undefined ? { model } : {}),
+  });
+
+  if (result.findings.length === 0) {
+    console.log("\nNo findings above vote threshold. Clean read.");
+  } else {
+    console.log(`\n${result.findings.length} finding${result.findings.length === 1 ? "" : "s"}:\n`);
+    for (const f of result.findings) {
+      console.log(`  [${f.severity.toUpperCase()}] ${f.kind} @ line ${f.line}  (votes ${f.votes}/${f.totalSamples}, ${f.confidence} conf)`);
+      console.log(`    ${f.title}`);
+      const whyLines = f.why.split("\n").map((l) => `      ${l}`).join("\n");
+      console.log(whyLines);
+      console.log("");
+    }
+  }
+
+  const m = result.meta;
+  console.error(
+    `\n${m.samplesParsed}/${m.samplesRequested} samples parsed  ·  ${m.totalTurns} turns  ·  $${m.totalCostUsd.toFixed(4)}  ·  ${(m.elapsedMs / 1000).toFixed(1)}s`,
+  );
+  if (result.raw.parseErrors.length > 0) {
+    console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 3) + 2} for more coverage)`);
+  }
+}
+
