@@ -7,7 +7,7 @@
 A read-only AI pair programmer. No hands, by design.
 
 Witness reads what you wrote and tells you what's wrong with it.
-Two stages ship today:
+Six stages ship today (stage 7 — production trace review — deferred):
 
 - **Diff review** — read a git diff, return structured recommendations
   (`bug`, `security`, `performance`, `refactor`, `architectural`,
@@ -203,14 +203,28 @@ findings actually mattered, so prompt tweaks and voting thresholds can be
 tuned with signal instead of vibes. Witness only keeps the most recent
 review on disk for ID lookup; dissent against older runs needs the full id.
 
-## Review a spec or PRD (v0.2+)
+## Review across the AI-app SDLC (v0.3+)
 
-witness ships a second stage for read-only review of markdown PRDs,
-specs, and ADRs. Same harness (N parallel samples, voting, dissent log
-substrate); different finding taxonomy. The taxonomy is six kinds:
+witness ships six stages today, each a read-only reviewer of one
+SDLC artifact kind. Same harness (N parallel SDK samples, voted,
+dissent log substrate); different finding taxonomy per stage. Stage 7
+(production trace review) is deferred — different orchestration
+shape (streaming sampler, not voting on a static artifact).
+
+| Stage | Subcommand | Taxonomy (6 finding kinds) |
+|-------|------------|----------------------------|
+| 1. Spec        | witness spec <md>        | missing-section, ambiguity, untestable-claim, scope-creep, broken-reference, undefined-term |
+| 2. Design      | witness design <md>      | bottleneck, single-point-of-failure, scaling-cliff, undocumented-dependency, contract-mismatch, security-perimeter |
+| 3. Diff (orig) | witness                  | bug, security, performance, refactor, architectural, convention, question |
+| 4. Prompt      | witness prompt <md>      | jailbreak-surface, ambiguous-instruction, missing-refusal-path, format-leak, context-overflow-risk, evaluation-gap |
+| 5. Eval design | witness eval-design <md> | insufficient-coverage, biased-fixture, missing-edge-case, wrong-scoring, contamination-risk, no-failure-mode |
+| 6. Deploy      | witness deploy <md>      | privilege-escalation, secret-leak, network-exposure, missing-healthcheck, dependency-pin-drift, resource-blowup |
+| 7. Trace       | (deferred)               | (streaming + sampling — separate architecture in Sprint 3) |
+
+The taxonomy from the original spec stage (still the first stage):
 
   - missing-section  — a load-bearing section that is not in the spec
-  - ambiguity        — wording two readers will implement differently
+  - ambiguity        — wording two readers would implement differently
   - untestable-claim — requirement that cannot be verified post-build
   - scope-creep      — work smuggled in beyond what the title promises
   - broken-reference — a referenced file/symbol/doc that does not exist

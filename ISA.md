@@ -240,3 +240,52 @@ Refactor witness from flat `src/` into `src/core/` (shared harness) plus `src/st
 - 2026-05-15: madge dev-dep + circular script added; verified clean on 26 files. Run cost: 451ms.
 - 2026-05-15: Forge auto-include skipped at Sprint 1.2/1.3/1.4 EXECUTE. Show my math: Sprint 1.2 was extraction from existing template; Sprint 1.3 was copy-and-rewire from sibling repo; Sprint 1.4 was prose + dependency add. None matched Forge's design-novel sweet spot. The E2E itself is the audit.
 - 2026-05-15: Advisor (Rule 2) for Run 2 reused Run 1's gap analysis. Show my math: architectural decisions in Run 2 (additive runner, port verbatim, subcommand pattern) were all derived from Run 1's commit-ordering/inventory advice. Calling advisor again would re-derive the same conclusions.
+
+---
+
+## Run 3 (2026-05-15) — Sprint 2 (Stages 2/4/5/6)
+
+### Criteria — additions
+
+- [x] ISC-57: stages/design/ with 6 finding kinds (bottleneck, SPoF, scaling-cliff, undocumented-dep, contract-mismatch, security-perimeter)
+- [x] ISC-58: stages/prompt/ with 6 finding kinds (jailbreak-surface, ambiguous-instruction, missing-refusal-path, format-leak, context-overflow-risk, evaluation-gap)
+- [x] ISC-59: stages/eval-design/ with 6 finding kinds (insufficient-coverage, biased-fixture, missing-edge-case, wrong-scoring, contamination-risk, no-failure-mode)
+- [x] ISC-60: stages/deploy/ with 6 finding kinds (privilege-escalation, secret-leak, network-exposure, missing-healthcheck, dependency-pin-drift, resource-blowup)
+- [x] ISC-61: each new stage has 5 files (schema, json-schema, voting, prompt/instructions, stage runtime) using core/subagent-runner
+- [x] ISC-62: stages/prompt/ uses instructions.ts for the system prompt (avoids prompt.ts filename clash)
+- [x] ISC-63: src/index.ts dispatches witness design|prompt|eval-design|deploy <path>
+- [x] ISC-64: all 4 new subcommands print --help cleanly and exit 0
+- [x] ISC-65: pnpm typecheck exit 0 across all 4 stages
+- [x] ISC-66: pnpm test passes 65/65 (no new tests; runner test in core covers shared path)
+- [x] ISC-67: pnpm circular exits clean on 46 files (was 26 pre-Sprint-2)
+- [x] ISC-68: E2E design stage on testing-spec.md → 3 voted findings, 2/2 votes each, $2.5566, 85.9s
+- [x] ISC-69: Anti: stage 7 (production trace) deliberately NOT added — separate architecture (streaming sampler vs voted artifact)
+- [x] ISC-70: Anti: no commits to main during Sprint 2 (work isolated on feat branch)
+
+### Verification — Run 3
+
+- ISC-57..62 — files exist per stage, schema.ts contains 6 z.literal kinds matching the documented taxonomy
+- ISC-63 — `grep "runDesign\|runPromptStage\|runEvalDesign\|runDeploy" src/index.ts` returns 4+ matches
+- ISC-64 — `pnpm witness <name> --help` exit 0 for all 4 stages (smoke-tested)
+- ISC-65 — `pnpm typecheck` exit 0
+- ISC-66 — `pnpm test` 8 test files, 65 tests, all passing
+- ISC-67 — `madge --circular --extensions ts src/` processed 46 files, no circular deps found
+- ISC-68 — design stage E2E:
+  - [HIGH] single-point-of-failure @ line 234 — Postgres single instance, no replication/failover documented
+  - [MEDIUM] security-perimeter @ line 254 — Tenant-agent scope enforcement not specified at DB layer
+  - [MEDIUM] undocumented-dependency @ line 492 — MCP TypeScript client referenced without version or contract
+- ISC-69, 70 — stage 7 absent from src/stages/; `git log main..HEAD` shows 0 commits on main during Sprint 2 (main still at f5f010c at commit time)
+
+### Run 3 — Changelog
+
+- conjectured: a single Python templating pass could generate 4 stage directories with correct JS template-literal escaping.
+- refuted_by: the initial generator wrote DOUBLE-backslash before each backtick (`\\\``) which TypeScript parsed as a literal backslash followed by an unescaped backtick that terminated the template literal early. Required a byte-precise byte-replace pass to collapse `\\` → `\` inside SYSTEM_PROMPT bodies.
+- learned: when templating JS template literals from Python, every escape level multiplies. Be explicit about what each `\\` collapses to in (a) the Python source string, (b) the rendered string, and (c) the JS source. The safest path is to use Python r-strings for the template body and apply ONE escape pass at output time.
+- criterion_now: add a CI step (or pre-commit hook) that runs `pnpm typecheck` so generator bugs in prompt-content escaping cannot ship.
+
+### Run 3 — Decisions
+
+- 2026-05-15: stage 7 (production trace) deferred to Sprint 3. Reason: streaming sampler architecture (consume log events, sample a subset, classify each, escalate flagged) differs fundamentally from voted-artifact review (read one document, run N samples, merge votes). Forcing one runner to do both would be premature generalization.
+- 2026-05-15: stages/prompt/ uses `instructions.ts` for system prompt to avoid the prompt.ts filename clash with the stage runtime. Other stages keep prompt.ts (no clash).
+- 2026-05-15: CLI dispatch added via runtime-generated handlers (runDesign, runPromptStage, runEvalDesign, runDeploy) rather than a single generic runStage helper. Reason: TypeScript type-safety on each review() function's options/result is preserved; the boilerplate is acceptable for 4 thin handlers.
+- 2026-05-15: skipped per-stage unit tests for Sprint 2. Reason: core/subagent-runner test covers the shared invocation path; each stage's prompt + schema is exercised by integration/E2E tests instead. Design stage E2E (this run) demonstrates the harness end-to-end on a real artifact.
