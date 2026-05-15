@@ -14,7 +14,8 @@
     "eval:all": "tsx evals/runner.ts --pool all",
     "eval:private": "tsx evals/runner.ts --pool private",
     "extract-fixtures": "tsx evals/extract-fixtures.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "circular": "madge --circular --extensions ts src/"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.77",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.5.0",
+    "madge": "^8.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"

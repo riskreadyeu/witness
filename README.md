@@ -194,6 +194,33 @@ findings actually mattered, so prompt tweaks and voting thresholds can be
 tuned with signal instead of vibes. Witness only keeps the most recent
 review on disk for ID lookup; dissent against older runs needs the full id.
 
+## Review a spec or PRD (v0.2+)
+
+witness ships a second stage for read-only review of markdown PRDs,
+specs, and ADRs. Same harness (N parallel samples, voting, dissent log
+substrate); different finding taxonomy. The taxonomy is six kinds:
+
+  - missing-section  — a load-bearing section that is not in the spec
+  - ambiguity        — wording two readers will implement differently
+  - untestable-claim — requirement that cannot be verified post-build
+  - scope-creep      — work smuggled in beyond what the title promises
+  - broken-reference — a referenced file/symbol/doc that does not exist
+  - undefined-term   — domain term used without definition
+
+```bash
+witness spec path/to/PRD.md
+witness spec path/to/PRD.md --samples 5 --min-votes 3
+witness spec --help
+```
+
+The agent has Read + Grep rooted at the repo containing the spec. It
+verifies broken-reference and undefined-term findings before flagging
+them. An empty findings array is a real result — a clean spec.
+
+The spec stage shares the same core/subagent-runner with the diff
+stage; adding a third stage in v0.3+ is a prompt + schema, not new
+infrastructure.
+
 ## Evals
 
 Quality of a reviewer is measured on precision, not just recall.

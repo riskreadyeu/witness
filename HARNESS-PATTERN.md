@@ -85,3 +85,19 @@ The skill system becomes a thin layer of triggers and doorbells. The judgment li
 Don't speculatively. Wait for the moment of "I keep wanting Claude Code / Codex to do this structured-judgment thing and I keep tweaking the prompt." That's the signal. At that point, the schema is already half-written in your head — extract it, build the CLI, and let the markdown skill thin out.
 
 The pattern is cheap to apply once you see it. The waste is rebuilding the pattern from scratch each time inside markdown.
+
+---
+
+## v0.2 update: same harness, multiple stages
+
+The original framing — "one CLI binary per harness" — is still true at the model-judgment layer. But when two stages share the same shape (short prompt + read-only tools + JSON schema + N-sample voting + dissent log + eval pool), the orchestration belongs in shared code, not in a copy/paste.
+
+Witness v0.2 makes that explicit:
+
+- `src/core/subagent-runner.ts` — generic Promise.all-over-N-samples runner. Stage-agnostic.
+- `src/stages/<name>/` — one directory per stage. Owns its prompt, its schema, its finding kinds, its stable-ID function (vote-bucketing key differs per stage: diff uses `(file, startLine, endLine, kind)`, spec uses `(line, kind)`).
+- One CLI binary still — `witness` — with a subcommand per stage (`witness`, `witness spec`, `witness dissent`).
+
+Adding a third stage (design review, prompt review, eval design) is now: a prompt file, a schema file, a 100-line stage runtime calling the shared subagent-runner, plus an entry in the subcommand dispatcher. No new infrastructure.
+
+If a future stage needs a different orchestration shape entirely (streaming + sampling for production traces, not voting on a static artifact), it gets its own runner module — not a stretched generalization of the current one. The shape was always "one harness per stage that shares this shape", not "one harness for everything".
