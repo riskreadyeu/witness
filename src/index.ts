@@ -30,7 +30,7 @@ import {
   logDissent,
   persistLastReview,
   resolveFindingByIdPrefix,
-} from "./dissent.js";
+} from "./core/dissent.js";
 import type { BackendKind } from "./stages/diff/backend.js";
 import { type AuthOverride, defaultBudgetForAuth, describeAuth, detectAuth } from "./core/auth.js";
 
