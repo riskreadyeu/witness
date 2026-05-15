@@ -162,7 +162,7 @@ options:
   --range <ref>         review diff between <ref> and working tree
   --diff <file>         review a pre-built .patch file (must live inside the
                         repo). Use \`--diff -\` to read a patch from stdin.
-  --samples <n>         number of model samples (default 5)
+  --samples <n>         number of model samples (default 3)
   --min-votes <n>       minimum votes to surface a finding (default 2)
   --min-severity <s>    hide findings below this severity (critical|high|medium|low)
   --max-turns <n>       max tool-use turns per sample (default 40)
@@ -358,7 +358,7 @@ async function main(): Promise<void> {
   }
 
   if (!args.quiet) {
-    const samples = args.samples ?? 5;
+    const samples = args.samples ?? 3;
     const backend = args.backend ?? "claude";
     let budgetText = "";
     if (backend === "claude") {
