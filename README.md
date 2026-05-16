@@ -43,6 +43,10 @@ possible wrapper to:
 Everything else is a temporary ladder that a better model kicks out
 from under itself. We will remove it when we can.
 
+## Making witness mandatory
+
+See [ENFORCEMENT.md](./ENFORCEMENT.md) for five enforcement layers — Claude Code slash command, PAI operational rule, git pre-commit hook (Husky), pre-push hook, and CI gate (GitHub Actions) — with copy-pasteable snippets per layer and stage-specific examples (diff vs. spec vs. deploy).
+
 ## Install
 
 ```bash
