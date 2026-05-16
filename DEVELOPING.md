@@ -14,7 +14,7 @@ A read-only AI reviewer. Bostrom's taxonomy: **Oracle** (observes and reports �
 | 4 | prompt | `witness prompt <md>` | LLM system prompts |
 | 5 | eval-design | `witness eval-design <md>` | eval configs / fixture plans |
 | 6 | deploy | `witness deploy <md>` | Dockerfile / k8s / Terraform / CI |
-| 7 | trace | (not built) | production trace / log stream — different architecture |
+| 7 | trace | witness trace <jsonl> | JSONL trace log (LexAi/data/usage shape; codex-cli + Claude SDK both supported) |
 
 Same harness: short prompt + read-only tools (Read + Grep ± Glob) + JSON-schema-structured output + N parallel samples + voting + dissent log.
 

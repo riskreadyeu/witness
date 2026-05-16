@@ -38,6 +38,7 @@ import { review as designReview } from "./stages/design/design.js";
 import { review as promptReview } from "./stages/prompt/prompt.js";
 import { review as evalDesignReview } from "./stages/eval-design/eval-design.js";
 import { review as deployReview } from "./stages/deploy/deploy.js";
+import { review as traceReview } from "./stages/trace/trace.js";
 
 type Severity = "critical" | "high" | "medium" | "low";
 
@@ -347,6 +348,10 @@ async function main(): Promise<void> {
   }
   if (argv[0] === "deploy") {
     return runDeploy(argv.slice(1));
+  }
+
+  if (argv[0] === "trace") {
+    return runTrace(argv.slice(1));
   }
 
 
@@ -1108,4 +1113,111 @@ async function runDeploy(argv: string[]): Promise<void> {
   if (result.raw.parseErrors.length > 0) {
     console.error(`(${result.raw.parseErrors.length} sample${result.raw.parseErrors.length === 1 ? "" : "s"} failed to parse — run with --samples ${(samples ?? 2) + 2} for more coverage)`);
   }
+}
+
+
+/**
+ * `witness trace <path>` — read a JSONL trace log (LexAi/data/usage shape)
+ * and surface outlier / pattern findings.
+ *
+ * Pure-stats path: no LLM calls, no API spend. Reads the file, computes
+ * medians/p95, emits findings for events that breach thresholds plus
+ * corpus-level patterns (error-rate, model-drift, repeated-query).
+ *
+ * Pipe-friendly: `witness trace -` reads JSONL from stdin.
+ */
+async function runTrace(argv: string[]): Promise<void> {
+  if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
+    console.log(
+      [
+        "witness trace — review a JSONL production-trace log",
+        "",
+        "usage:",
+        "  witness trace <path.jsonl>             review the file",
+        "  witness trace -                        read JSONL from stdin",
+        "",
+        "options:",
+        "  --outlier-factor <n>   per-event outlier threshold (default 5; flag if value >= n * median)",
+        "  --min-repeats <n>      flag repeated-query at this count (default 5)",
+        "  --error-rate <0..1>    flag error-pattern at this rate (default 0.05)",
+        "",
+        "  No API calls — runs purely against numeric fields.",
+        "  Supported event shape: { emitted_at, session_id, model, query, num_turns,",
+        "    duration_ms, is_error, subtype, total_cost_usd, usage{...} }.",
+      ].join("\n"),
+    );
+    return;
+  }
+
+  const path = argv[0]!;
+  if (path.startsWith("--") && path !== "-") {
+    console.error("witness trace: first positional argument must be a file path or '-' for stdin.");
+    process.exit(2);
+  }
+
+  let outlierFactor: number | undefined;
+  let repeatedQueryThreshold: number | undefined;
+  let errorRateThreshold: number | undefined;
+
+  for (let i = 1; i < argv.length; i++) {
+    const a = argv[i]!;
+    switch (a) {
+      case "--outlier-factor":
+        outlierFactor = parsePositiveFloat(argv[++i], "--outlier-factor");
+        break;
+      case "--min-repeats":
+        repeatedQueryThreshold = parsePositiveInt(argv[++i], "--min-repeats");
+        break;
+      case "--error-rate":
+        errorRateThreshold = parsePositiveFloat(argv[++i], "--error-rate");
+        break;
+      default:
+        console.error(`witness trace: unknown flag ${a}`);
+        process.exit(2);
+    }
+  }
+
+  const result = await traceReview({
+    ...(path !== "-" ? { path } : {}),
+    ...(outlierFactor !== undefined ? { outlierFactor } : {}),
+    ...(repeatedQueryThreshold !== undefined ? { repeatedQueryThreshold } : {}),
+    ...(errorRateThreshold !== undefined ? { errorRateThreshold } : {}),
+  });
+
+  const { stats, findings } = result;
+  console.error(
+    `witness trace: ${stats.total} events from ${result.meta.source}` +
+      (result.raw.skipped > 0 ? ` (${result.raw.skipped} malformed lines skipped)` : ""),
+  );
+  console.error(
+    `  cost   median $${stats.cost.median.toFixed(4)}  p95 $${stats.cost.p95.toFixed(4)}  max $${stats.cost.max.toFixed(4)}`,
+  );
+  console.error(
+    `  dur    median ${(stats.duration.median / 1000).toFixed(2)}s  p95 ${(stats.duration.p95 / 1000).toFixed(2)}s  max ${(stats.duration.max / 1000).toFixed(2)}s`,
+  );
+  console.error(
+    `  turns  median ${stats.turns.median}  p95 ${stats.turns.p95}  max ${stats.turns.max}`,
+  );
+  console.error(
+    `  errors ${stats.errors}/${stats.total}  (${(stats.errorRate * 100).toFixed(1)}%)`,
+  );
+
+  if (findings.length === 0) {
+    console.log("\nNo findings above threshold. Trace looks clean.");
+    return;
+  }
+
+  console.log(`\n${findings.length} finding${findings.length === 1 ? "" : "s"}:\n`);
+  for (const f of findings) {
+    const sessTag = f.sessionIds.length > 0
+      ? `  session=${f.sessionIds.slice(0, 3).join(",")}${f.sessionIds.length > 3 ? `,+${f.sessionIds.length - 3}` : ""}`
+      : "";
+    console.log(`  [${f.severity.toUpperCase()}] ${f.kind} (events=${f.eventCount}, ${f.confidence} conf)${sessTag}`);
+    console.log(`    ${f.title}`);
+    const whyLines = f.why.split("\n").map((l: string) => `      ${l}`).join("\n");
+    console.log(whyLines);
+    console.log("");
+  }
+
+  console.error(`\n(${result.meta.elapsedMs}ms · 0 API calls · $0.00)`);
 }

@@ -219,7 +219,7 @@ shape (streaming sampler, not voting on a static artifact).
 | 4. Prompt      | witness prompt <md>      | jailbreak-surface, ambiguous-instruction, missing-refusal-path, format-leak, context-overflow-risk, evaluation-gap |
 | 5. Eval design | witness eval-design <md> | insufficient-coverage, biased-fixture, missing-edge-case, wrong-scoring, contamination-risk, no-failure-mode |
 | 6. Deploy      | witness deploy <md>      | privilege-escalation, secret-leak, network-exposure, missing-healthcheck, dependency-pin-drift, resource-blowup |
-| 7. Trace       | (deferred)               | (streaming + sampling — separate architecture in Sprint 3) |
+| 7. Trace       | witness trace <jsonl>    | cost-outlier, latency-spike, excessive-turns, error-pattern, repeated-query, model-drift (stats-only, no API calls) |
 
 ### Cost notes
 
