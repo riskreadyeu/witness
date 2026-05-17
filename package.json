@@ -23,6 +23,7 @@
     "zod-to-json-schema": "^3.23.0"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.96.0",
     "@types/node": "^22.5.0",
     "madge": "^8.0.0",
     "tsx": "^4.19.0",

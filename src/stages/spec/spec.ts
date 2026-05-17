@@ -1,12 +1,11 @@
 /**
- * Spec stage runtime.
+ * Spec stage runtime — v0.4: uses core/claude-direct-runner so all N
+ * samples share a cache_control marker on the system prompt + initial
+ * user-message artifact block. Sample 1 writes the cache; samples 2..N
+ * read it at 10% of input price.
  *
- * Reviews a markdown spec / PRD / ADR via N parallel SDK queries on the
- * shared core/subagent-runner. Stage-owned: prompt, schema, finding kinds,
- * line-based stable ID. Runner-owned: Promise.all parallelism, SDK
- * invocation, structured-output extraction.
- *
- * Authentication is delegated to the SDK (same path as the diff stage).
+ * Auth: delegated to claude-direct-runner.resolveAuth (env var or the
+ * OAuth bearer from ~/.claude/.credentials.json).
  */
 
 import { SYSTEM_PROMPT } from "./prompt.js";
@@ -19,8 +18,8 @@ import { reviewResponseJsonSchema } from "./json-schema.js";
 import { mergeSamples } from "./voting.js";
 import {
   runSamples,
-  type SubagentSampleResult,
-} from "../../core/subagent-runner.js";
+  type DirectSampleResult,
+} from "../../core/claude-direct-runner.js";
 import {
   type AuthMode,
   type AuthOverride,
@@ -29,14 +28,8 @@ import {
 } from "../../core/auth.js";
 
 export interface SpecReviewOptions {
-  /** The full markdown text of the spec being reviewed. */
   spec: string;
-  /** Absolute or repo-relative path of the spec file (used in the user message). */
   specPath: string;
-  /**
-   * Directory the agent's Read/Grep tools are rooted at — typically the
-   * repo containing the spec, so the model can verify cross-references.
-   */
   repoRoot: string;
   model?: string;
   samples?: number;
@@ -62,6 +55,8 @@ export interface SpecReviewResult {
     elapsedMs: number;
     auth: AuthMode;
     budgetUsdPerSample: number;
+    cacheCreationTokens: number;
+    cacheReadTokens: number;
   };
 }
 
@@ -94,7 +89,7 @@ export async function review(opts: SpecReviewOptions): Promise<SpecReviewResult>
     systemPrompt: SYSTEM_PROMPT,
     userMessage,
     repoRoot: opts.repoRoot,
-    jsonSchema: reviewResponseJsonSchema as Record<string, unknown>,
+    outputSchema: reviewResponseJsonSchema as Record<string, unknown>,
     tools: ["Read", "Grep"],
     model,
     maxTurnsPerSample: maxTurns,
@@ -105,12 +100,12 @@ export async function review(opts: SpecReviewOptions): Promise<SpecReviewResult>
   const parseErrors: ParseError[] = [];
   const parsed: Finding[][] = [];
 
-  runResult.samples.forEach((s: SubagentSampleResult, index: number) => {
+  runResult.samples.forEach((s: DirectSampleResult, index: number) => {
     if (s.structuredOutput === null) {
       parseErrors.push({
         sampleIndex: index,
         error: s.errorReason ?? "no structured_output",
-        detail: s.rawText ?? "",
+        detail: `cost=$${s.costUsd.toFixed(4)} turns=${s.turns}`,
       });
       return;
     }
@@ -142,12 +137,13 @@ export async function review(opts: SpecReviewOptions): Promise<SpecReviewResult>
       elapsedMs: Date.now() - started,
       auth,
       budgetUsdPerSample: maxBudgetUsdPerSample,
+      cacheCreationTokens: runResult.totalCacheCreationTokens,
+      cacheReadTokens: runResult.totalCacheReadTokens,
     },
   };
 }
 
 function renderUserMessage(spec: string, specPath: string): string {
-  // Number every line so the model can cite line numbers accurately.
   const numbered = spec
     .split("\n")
     .map((line, i) => `${String(i + 1).padStart(4, " ")}  ${line}`)
@@ -169,7 +165,8 @@ function renderUserMessage(spec: string, specPath: string): string {
     `flagging \`broken-reference\`. Use Grep on the spec itself before`,
     `flagging \`undefined-term\` (the term may be defined elsewhere).`,
     ``,
-    `Return a JSON object \`{ findings: Finding[] }\`. An empty array is`,
-    `a valid response — a clean spec is a real outcome.`,
+    `When you are done investigating, call the submit_findings tool with`,
+    `the findings array. An empty array is a valid response — a clean spec`,
+    `is a real outcome. Call submit_findings exactly ONCE.`,
   ].join("\n");
 }
