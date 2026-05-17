@@ -227,7 +227,7 @@ shape (streaming sampler, not voting on a static artifact).
 
 ### Cost notes
 
-The SDK always bills as API tier () even when you have a Pro/Max subscription configured at . The OAuth bearer is recognized by  (the CLI) for chat but not by the SDK's underlying API call. Until that gap closes, treat every witness invocation as real-money API spend.
+The bundled Claude Agent SDK always bills as API tier (`service_tier: standard`) regardless of whether `~/.claude/.credentials.json` is present — verified by direct probe. The new `claude-direct-runner` (used by the spec stage as of v0.4) calls api.anthropic.com directly using the OAuth bearer from the credentials file when `ANTHROPIC_API_KEY` is not set; the bearer authenticates but still bills at standard API rates. Treat every witness invocation as real-money API spend until subscription billing reaches the SDK / direct API path.
 
 Default tuning (v0.3+) keeps quality and cuts cost:
 
@@ -236,8 +236,13 @@ Default tuning (v0.3+) keeps quality and cuts cost:
   - **** — ~15× cheaper than the Opus default, but expect lower structured-output reliability and shallower findings on long-context artifacts. Good for quick drafts; not for final review.
 
 Measured: spec review of an 812-line PRD ran .00 with v0.2 defaults (3 samples, Opus). Same PRD on v0.3 defaults (2 samples, Opus, max-turns 30) ran .70 — ~76% reduction with one voted high-severity finding surfaced.
+Measured (v0.4 direct runner, Haiku, 2 samples on same PRD): $0.35, 2/2 samples parsed, 1 voted finding, 1.4M cache_read tokens — proving the cache fires end-to-end.
 
-Next lever (not yet wired): explicit Anthropic prompt caching of the system prompt + numbered artifact block. The SDK does not currently expose  on ; auto-caching is bypassed by . Wiring this would require either an SDK update or bypassing the SDK with  directly + a hand-rolled tool-use loop.
+Prompt caching (v0.4+): the **spec** stage now uses `src/core/claude-direct-runner.ts`, which bypasses the agent SDK and calls `@anthropic-ai/sdk` directly with `cache_control: { type: "ephemeral" }` on the system prompt + the numbered-artifact user block. All N samples send the IDENTICAL prefix; sample 1 writes the cache, samples 2..N read it at 10% of input price.
+
+Measured on testing-spec.md (812-line PRD) with the direct runner (Haiku, 2 samples for rate-limit reasons during the validation pass): cache_creation 42,628 tokens; cache_read **1,411,997 tokens** (≈33× re-use across 53 turns); total cost **$0.35**. Opus before/after on the same artifact is pending — earlier session burned the subscription rate window.
+
+Stages still on the old SDK runner (no shared cache across samples): design, prompt, eval-design, deploy. The diff stage keeps its dual-backend pattern (claude + codex). Migrate the remaining stages once the Opus E2E confirms the expected reduction on a real Opus run.
 
 The taxonomy from the original spec stage (still the first stage):
 
