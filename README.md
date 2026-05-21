@@ -83,6 +83,35 @@ codex login
 > and are on you to respect. If you're redistributing Witness or running it
 > inside a commercial product, set `ANTHROPIC_API_KEY` instead.
 
+
+### Multi-provider (v0.5+)
+
+The **spec** stage now routes through a provider dispatcher that picks an SDK based on the model name:
+
+| Pass `--model ...`            | Provider  | SDK                  | Auth env                                           |
+|-------------------------------|-----------|----------------------|----------------------------------------------------|
+| `claude-opus-4-7` (default)   | Anthropic | `@anthropic-ai/sdk`  | `ANTHROPIC_API_KEY` or `~/.claude/.credentials.json` |
+| `claude-haiku-4-5-20251001`   | Anthropic | `@anthropic-ai/sdk`  | same                                               |
+| `gemini-2.5-pro`              | Google    | `@google/genai`      | `GEMINI_API_KEY`                                   |
+| `gemini-2.5-flash`            | Google    | `@google/genai`      | `GEMINI_API_KEY`                                   |
+
+```bash
+# Default (Anthropic Opus)
+witness spec docs/PRD.md
+
+# Switch to Gemini — needs GEMINI_API_KEY from https://aistudio.google.com/apikey
+export GEMINI_API_KEY=...
+witness spec docs/PRD.md --model gemini-2.5-pro
+witness spec docs/PRD.md --model gemini-2.5-flash --samples 3
+```
+
+Both providers go through the same harness (N parallel samples, voting, dissent log). Prompt caching wires automatically per provider:
+- Anthropic: `cache_control: { type: "ephemeral" }` on system + initial user block
+- Google: explicit `CachedContent` object shared across the N samples (5-minute TTL, deleted on run completion)
+
+Stages still on the legacy single-provider runner: design, prompt, eval-design, deploy, diff. Migrate via the dispatcher in future sprints once spec proves the model out.
+
+
 ## Use
 
 ```bash

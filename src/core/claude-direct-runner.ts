@@ -25,6 +25,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import type { ReviewRunner, RunnerOptions, RunResult, SampleResult } from "./runner-types.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readFile, readFileSync } from "node:fs";
@@ -34,7 +35,8 @@ import { isAbsolute, join, resolve } from "node:path";
 
 const execFileAsync = promisify(execFile);
 
-export interface DirectRunOptions {
+export type DirectRunOptions = RunnerOptions;
+interface _DirectRunOptionsLegacy {
   systemPrompt: string;
   userMessage: string;
   repoRoot: string;
@@ -46,7 +48,8 @@ export interface DirectRunOptions {
   samples: number;
 }
 
-export interface DirectSampleResult {
+export type DirectSampleResult = SampleResult;
+interface _DirectSampleResultLegacy {
   structuredOutput: unknown | null;
   costUsd: number;
   turns: number;
@@ -55,7 +58,8 @@ export interface DirectSampleResult {
   errorReason?: string;
 }
 
-export interface DirectRunResult {
+export type DirectRunResult = RunResult;
+interface _DirectRunResultLegacy {
   samples: DirectSampleResult[];
   totalCostUsd: number;
   totalTurns: number;
@@ -126,7 +130,19 @@ export async function runSamples(opts: DirectRunOptions): Promise<DirectRunResul
     totalTurns: samples.reduce((a, s) => a + s.turns, 0),
     totalCacheCreationTokens: samples.reduce((a, s) => a + s.cacheCreationTokens, 0),
     totalCacheReadTokens: samples.reduce((a, s) => a + s.cacheReadTokens, 0),
+    provider: "anthropic",
   };
+}
+
+/**
+ * Class-form wrapper that satisfies ReviewRunner. The dispatcher uses this;
+ * the functional runSamples export above is kept for direct callers (spec stage,
+ * pre-dispatcher tests).
+ */
+export class ClaudeDirectRunner implements ReviewRunner {
+  async runSamples(opts: RunnerOptions): Promise<RunResult> {
+    return runSamples(opts);
+  }
 }
 
 async function runOneSample(

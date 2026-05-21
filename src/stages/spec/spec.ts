@@ -16,10 +16,8 @@ import {
 } from "./schema.js";
 import { reviewResponseJsonSchema } from "./json-schema.js";
 import { mergeSamples } from "./voting.js";
-import {
-  runSamples,
-  type DirectSampleResult,
-} from "../../core/claude-direct-runner.js";
+import { runSamples } from "../../core/runner-dispatch.js";
+import type { SampleResult } from "../../core/runner-types.js";
 import {
   type AuthMode,
   type AuthOverride,
@@ -100,7 +98,7 @@ export async function review(opts: SpecReviewOptions): Promise<SpecReviewResult>
   const parseErrors: ParseError[] = [];
   const parsed: Finding[][] = [];
 
-  runResult.samples.forEach((s: DirectSampleResult, index: number) => {
+  runResult.samples.forEach((s: SampleResult, index: number) => {
     if (s.structuredOutput === null) {
       parseErrors.push({
         sampleIndex: index,
