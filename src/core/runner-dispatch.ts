@@ -26,7 +26,7 @@ export interface DispatchOptions extends RunnerOptions {
   provider?: ProviderName;
 }
 
-function pickProvider(model: string, override?: ProviderName): ProviderName {
+export function pickProvider(model: string, override?: ProviderName): ProviderName {
   if (override) return override;
   if (model.startsWith("gemini-")) return "google";
   if (model.startsWith("claude-")) return "anthropic";
