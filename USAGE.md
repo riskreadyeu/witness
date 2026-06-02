@@ -140,16 +140,26 @@ a type, not to argue with the finding.
 
 The `--budget` flag is a per-sample cap that the SDK enforces by aborting
 the query when reported `total_cost_usd` exceeds it. The cap fires the
-same way under both auth modes — what differs is whether the dollars are
-real money or theoretical:
+same way under both auth modes.
 
-| Auth                                     | Dollars reported          | Dollars you pay |
-|------------------------------------------|---------------------------|-----------------|
-| `claude login` (Pro/Max subscription)    | theoretical (tokens × rate card) | $0 — flat-rate subscription |
-| `ANTHROPIC_API_KEY`                      | actual                    | what the SDK reports |
+> **Cost reality — read this.** Earlier versions of this doc claimed
+> subscription runs cost "$0 — flat-rate subscription." Witness's own
+> measurements refute that: a spec E2E billed **~$2.89 with
+> `~/.claude/.credentials.json` present** (see `ISA.md`, Run 2), the bundled
+> Claude Agent SDK reports `service_tier: standard` regardless of the creds
+> file, and the OAuth bearer used by the direct runner authenticates but
+> still meters at standard API rates. **Treat every witness run as real
+> spend** until you've confirmed otherwise on your own account. The numbers
+> below are best-effort estimates, not a promise that subscription is free.
 
-On subscription the cap is a **runaway-loop backstop**, not a wallet
-protection. So Witness picks the default budget based on detected auth:
+| Auth                                  | Dollars reported          | Do you pay it? |
+|---------------------------------------|---------------------------|----------------|
+| `claude login` (Pro/Max subscription) | metered (tokens × rate card) | **Unconfirmed — measured as nonzero.** Don't assume free. |
+| `ANTHROPIC_API_KEY`                   | actual                    | Yes — what the SDK reports. |
+
+Witness picks the default budget based on detected auth (a runaway-loop
+backstop in both cases, looser for subscription only because the binding
+limit there is usually the rate window):
 
 - **Subscription** (auto-detected from `~/.claude/.credentials.json`)
   → default `$10.00` per sample. Generous; you'll basically never hit it.
@@ -160,8 +170,10 @@ Override the auto-detection with `--auth subscription | api-key | auto`.
 Override the budget directly with `--budget <usd>`. The Codex backend
 ignores both — it has its own config.
 
-The actual subscription bottleneck isn't dollars; it's Anthropic's
-rate limits (5-hour message windows, weekly tier caps). If you're
+The binding subscription limit is usually Anthropic's
+rate limits (5-hour message windows, weekly tier caps) rather than the
+dollar figure — but "rate-limited, not billed" is not the same as "free,"
+and witness has measured nonzero cost on subscription. If you're
 running Witness all day on subscription you'll hit those well before
 any dollar figure becomes interesting, and they surface as
 `rate_limit_error` in per-sample failure detail.

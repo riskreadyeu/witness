@@ -2,14 +2,21 @@
  * Auth-mode detection.
  *
  * Why this exists:
- *   - On a Pro/Max subscription (after `claude login`), the Anthropic SDK
- *     still reports a `total_cost_usd` per query — but that's a *theoretical*
- *     dollar amount (tokens × rate card), not real money. The user pays $0
- *     because the subscription is flat-rate.
- *   - On API-key auth (ANTHROPIC_API_KEY), the same number is real money.
- *   - The SDK's `maxBudgetUsd` cap fires regardless. So a default budget
- *     that protects API-key users from runaway spend (e.g. $1/sample) will
- *     unnecessarily abort subscription users on long diffs.
+ *   - The SDK reports a `total_cost_usd` per query under both auth modes.
+ *   - On API-key auth (ANTHROPIC_API_KEY) that number is unambiguously real
+ *     money.
+ *   - On a Pro/Max subscription (`claude login`) it was ASSUMED to be a
+ *     theoretical figure the flat-rate plan absorbs. Witness's own
+ *     measurements refute that assumption: a spec E2E billed ~$2.89 with
+ *     `~/.claude/.credentials.json` present (see ISA.md Run 2), the bundled
+ *     agent SDK bills at `service_tier: standard` regardless of the creds
+ *     file, and the OAuth bearer used by claude-direct-runner authenticates
+ *     but still meters at standard API rates. Treat every witness run as
+ *     potentially real spend until subscription billing is confirmed end to
+ *     end — do NOT rely on "subscription = free."
+ *   - The `maxBudgetUsd` cap fires under both modes; this detection only
+ *     picks a DEFAULT cap, generous for subscription (the real bottleneck
+ *     there is Anthropic's rate limits, not dollars) and tight for API keys.
  *
  * Detection strategy:
  *   - `~/.claude/.credentials.json` exists → subscription is configured.
@@ -41,8 +48,12 @@ export function detectAuth(override?: AuthOverride): AuthMode {
 /**
  * Default per-sample budget cap by auth mode.
  *
- * Subscription: generous runaway-protection only ($10 of *theoretical*
- *   dollars; you don't pay this).
+ * Subscription: generous default ($10) — a runaway-loop backstop, NOT a
+ *   "you don't pay this" guarantee. Witness's measurements show subscription
+ *   runs still meter real cost (see detectAuth comment + ISA.md). The reason
+ *   the default is loose is that on subscription the binding limit is usually
+ *   Anthropic's rate window, not the dollar figure — but the dollars are not
+ *   known to be free.
  *
  * API-key / unknown: tight default ($1) because the dollars are real.
  *
