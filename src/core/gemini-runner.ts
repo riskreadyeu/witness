@@ -27,7 +27,7 @@ import { GoogleGenAI, Type, FunctionCallingConfigMode, type Content, type Functi
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { readFile as readFileAsync } from "node:fs/promises";
-import { isAbsolute, resolve } from "node:path";
+import { resolveSafePath } from "./path-guard.js";
 import type { ReviewRunner, RunnerOptions, RunResult, SampleResult } from "./runner-types.js";
 
 const execFileAsync = promisify(execFile);
@@ -384,13 +384,4 @@ async function executeTool(
     }
   }
   throw new Error(`unknown tool: ${name}`);
-}
-
-function resolveSafePath(repoRoot: string, p: string): string {
-  const root = resolve(repoRoot);
-  const abs = isAbsolute(p) ? p : resolve(root, p);
-  if (!abs.startsWith(root)) {
-    throw new Error(`path escapes repoRoot: ${p}`);
-  }
-  return abs;
 }

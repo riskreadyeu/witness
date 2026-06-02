@@ -12,7 +12,8 @@
  */
 
 import { readFile, realpath } from "node:fs/promises";
-import { relative, resolve, sep } from "node:path";
+import { resolve } from "node:path";
+import { escapesRepoRoot } from "../../core/path-guard.js";
 
 export interface DiffContext {
   diff: string;
@@ -146,11 +147,6 @@ export async function readDiffInput(diffFile: string, repoRoot: string): Promise
     );
   }
   return readFile(realAbsolute, "utf-8");
-}
-
-function escapesRepoRoot(root: string, absolute: string): boolean {
-  const rel = relative(root, absolute);
-  return rel === ".." || rel.startsWith(".." + sep);
 }
 
 function outsideRepoError(diffFile: string, absolute: string, root: string): Error {

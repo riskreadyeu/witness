@@ -31,7 +31,8 @@ import { promisify } from "node:util";
 import { readFile, readFileSync } from "node:fs";
 import { readFile as readFileAsync } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { join } from "node:path";
+import { resolveSafePath } from "./path-guard.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -107,8 +108,14 @@ function costOf(
   );
 }
 
-export function resolveAuth(): string {
-  if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
+type ResolvedAuth =
+  | { mode: "api-key"; apiKey: string }
+  | { mode: "oauth"; token: string };
+
+export function resolveAuthDetailed(): ResolvedAuth {
+  if (process.env.ANTHROPIC_API_KEY) {
+    return { mode: "api-key", apiKey: process.env.ANTHROPIC_API_KEY };
+  }
   const credsPath = join(homedir(), ".claude", ".credentials.json");
   const parsed = JSON.parse(readFileSync(credsPath, "utf8")) as {
     claudeAiOauth?: { accessToken?: string };
@@ -116,11 +123,29 @@ export function resolveAuth(): string {
   if (!parsed.claudeAiOauth?.accessToken) {
     throw new Error("no auth: set ANTHROPIC_API_KEY or run `claude login`");
   }
-  return parsed.claudeAiOauth.accessToken;
+  return { mode: "oauth", token: parsed.claudeAiOauth.accessToken };
+}
+
+export function resolveAuth(): string {
+  const a = resolveAuthDetailed();
+  return a.mode === "api-key" ? a.apiKey : a.token;
+}
+
+function makeClient(): Anthropic {
+  const a = resolveAuthDetailed();
+  // OAuth (subscription) tokens must be sent as a Bearer authToken with the
+  // OAuth beta header — NOT as x-api-key, which returns 401 invalid x-api-key.
+  if (a.mode === "oauth") {
+    return new Anthropic({
+      authToken: a.token,
+      defaultHeaders: { "anthropic-beta": "oauth-2025-04-20" },
+    });
+  }
+  return new Anthropic({ apiKey: a.apiKey });
 }
 
 export async function runSamples(opts: DirectRunOptions): Promise<DirectRunResult> {
-  const client = new Anthropic({ apiKey: resolveAuth() });
+  const client = makeClient();
   const samples = await Promise.all(
     Array.from({ length: opts.samples }, () => runOneSample(client, opts)),
   );
@@ -428,13 +453,4 @@ async function executeTool(
     }
   }
   throw new Error(`unknown tool: ${name}`);
-}
-
-function resolveSafePath(repoRoot: string, p: string): string {
-  const root = resolve(repoRoot);
-  const abs = isAbsolute(p) ? p : resolve(root, p);
-  if (!abs.startsWith(root)) {
-    throw new Error(`path escapes repoRoot: ${p}`);
-  }
-  return abs;
 }

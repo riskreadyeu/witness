@@ -46,3 +46,6 @@ social-preview.png
 
 # dogfood write-ups reference real private commits — kept local
 evals/dogfood/
+
+# stray rsync staging dir — never commit
+tmp/
