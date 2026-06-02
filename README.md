@@ -4,10 +4,16 @@
 
 # witness
 
-A read-only AI pair programmer. No hands, by design.
+A read-only QA harness for AI-native development. No hands, by design.
 
-Witness reads what you wrote and tells you what's wrong with it.
-Six stages ship today (stage 7 — production trace review — deferred):
+Witness reviews the artifacts you produce while building an AI app — spec,
+design, prompts, code, eval plan, deploy config, and production traces — and
+tells you what's wrong with each. One trust model, one finding format, and one
+dissent loop across the whole lifecycle. It does not write, run, or push; it
+observes and reports.
+
+Seven stages ship today (diff and spec are stable; the rest are beta — see
+**Stage maturity** below):
 
 - **Diff review** — read a git diff, return structured recommendations
   (`bug`, `security`, `performance`, `refactor`, `architectural`,
@@ -24,6 +30,24 @@ not write, run, or push. You decide what to do with the findings.
 > is public for inspection and for anyone who wants to fork it — what's
 > here is what works for the author. Issues and PRs are not being
 > triaged. License is MIT, so do what you like with the code.
+
+## Stage maturity
+
+witness covers the AI-app lifecycle, but the stages are not equally
+battle-tested. Be honest with yourself about which you lean on:
+
+| Stage | Maturity | Notes |
+|-------|----------|-------|
+| `diff` (code) | **stable** | original stage; unit-tested; dual-backend (Claude + Codex) |
+| `spec` | **stable** | unit-tested path; prompt-cached; multi-provider (Claude + Gemini) |
+| `prompt` | _beta_ | runs and returns real findings; no unit tests yet, Opus-only, no cache |
+| `eval-design` | _beta_ | runs and returns real findings; no unit tests yet, Opus-only, no cache |
+| `deploy` | _beta_ | runs and returns real findings; no unit tests yet, Opus-only, no cache |
+| `trace` | _experimental_ | no LLM at all — pure statistics over a JSONL log; cheap, deterministic, $0 |
+
+"Beta" means the stage works, but it has not been through the eval + precision
+tuning the `diff` and `spec` stages have. Treat its output as a useful draft,
+not a calibrated verdict.
 
 > The shape is deliberate. In Bostrom's taxonomy, an **Oracle** answers
 > questions; a **Genie** executes instructions; a **Sovereign** pursues
