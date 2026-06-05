@@ -12,10 +12,12 @@
  *   - Cost/turn metrics are aggregated across samples.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { review } from "./witness.js";
 import type { BackendSampleResult, ReviewerBackend } from "./backend.js";
 import type { Recommendation } from "../../core/schema.js";
+import { __setRunSamples, __resetRunSamples } from "../../core/runner-dispatch.js";
+import type { RunResult } from "../../core/runner-types.js";
 
 const FINDING_A = {
   kind: "bug",
@@ -203,5 +205,56 @@ describe("review()", () => {
     expect(result.meta.backend).toBe("custom");
     expect(result.meta.samplesParsed).toBe(2);
     expect(result.findings[0]?.votes).toBe(2);
+  });
+});
+
+// ── Dispatcher path (makeDispatcherBackend) ──────────────────────────────────
+// These tests drive review() WITHOUT a reviewerBackend so the dispatcher
+// wiring in makeDispatcherBackend is actually exercised.
+
+function fakeRunResult(structuredOutput: unknown, costUsd = 0.01, turns = 3): RunResult {
+  return {
+    samples: [{
+      structuredOutput,
+      costUsd,
+      turns,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+    }],
+    totalCostUsd: costUsd,
+    totalTurns: turns,
+    totalCacheCreationTokens: 0,
+    totalCacheReadTokens: 0,
+    provider: "anthropic",
+  };
+}
+
+describe("review() via makeDispatcherBackend (no reviewerBackend injected)", () => {
+  afterEach(() => __resetRunSamples());
+
+  it("routes through dispatcher and returns merged findings", async () => {
+    __setRunSamples(async () => fakeRunResult({ findings: [FINDING_A] }));
+    const result = await review({
+      diff: "diff --git a/x b/x\n+++ b/x\n+foo\n",
+      repoRoot: "/tmp",
+      samples: 2,
+      minVotes: 2,
+    });
+    expect(result.meta.backend).toBe("claude");
+    expect(result.findings.length).toBe(1);
+    expect(result.findings[0]?.votes).toBe(2);
+    expect(result.meta.totalCostUsd).toBeCloseTo(0.02, 6);
+  });
+
+  it("routes dispatcher null structuredOutput to parseErrors", async () => {
+    __setRunSamples(async () => fakeRunResult(null));
+    const result = await review({
+      diff: "diff --git a/x b/x\n+++ b/x\n+foo\n",
+      repoRoot: "/tmp",
+      samples: 1,
+      minVotes: 1,
+    });
+    expect(result.meta.samplesParsed).toBe(0);
+    expect(result.raw.parseErrors.length).toBe(1);
   });
 });

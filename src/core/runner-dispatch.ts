@@ -38,8 +38,20 @@ const REGISTRY: Record<ProviderName, () => ReviewRunner> = {
   google: () => new GeminiRunner(),
 };
 
-export async function runSamples(opts: DispatchOptions): Promise<RunResult> {
+async function runSamplesImpl(opts: DispatchOptions): Promise<RunResult> {
   const provider = pickProvider(opts.model, opts.provider);
   const runner = REGISTRY[provider]();
   return runner.runSamples(opts);
+}
+
+/** Test injection point. */
+export type RunSamplesFn = (opts: DispatchOptions) => Promise<RunResult>;
+let _runSamples: RunSamplesFn = runSamplesImpl;
+/** Swap the runSamples implementation. For tests only. */
+export function __setRunSamples(fn: RunSamplesFn): void { _runSamples = fn; }
+/** Restore the default. For tests only. */
+export function __resetRunSamples(): void { _runSamples = runSamplesImpl; }
+
+export async function runSamples(opts: DispatchOptions): Promise<RunResult> {
+  return _runSamples(opts);
 }
